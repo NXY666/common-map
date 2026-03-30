@@ -1,0 +1,20 @@
+{
+  "name": "map-api-2",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "maplibre-gl": "^5.21.0"
+  },
+  "devDependencies": {
+    "@types/bmapgl": "^0.0.7",
+    "@types/node": "^24.12.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1"
+  }
+}

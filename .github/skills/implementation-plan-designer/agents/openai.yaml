@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implementation Plan Designer"
+  short_description: "Design rigorous implementation plans"
+  default_prompt: "Use $implementation-plan-designer to design a complete implementation plan for this requirement."
