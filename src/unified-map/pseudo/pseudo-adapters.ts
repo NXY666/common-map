@@ -1,24 +1,34 @@
 import { StaticCapabilityProfile, type MapCapability } from "../core/capability";
 import { AbstractMapAdapter } from "../core/adapter";
 import type { AbstractControl } from "../core/control";
-import type { MapEventBridge } from "../core/internal-events";
+import {
+  emitControlEvent,
+  emitOverlayEvent,
+  type MapEventBridge,
+} from "../core/internal-events";
 import type { AbstractLayer } from "../core/layer";
 import type { AbstractOverlay } from "../core/overlay";
 import type { AbstractSource } from "../core/source";
 import {
+  type ControlDefinition,
   describeContainer,
+  type OverlayDefinition,
   toLngLatLiteral,
   type CameraState,
   type CameraTransition,
   type LngLatLike,
   type LngLatLiteral,
-  type LayerDefinition,
   type MapMountTarget,
   type ScreenPoint,
   type UnifiedMapOptions,
   type UnifiedMapRuntimeOptions,
   type UnifiedMapStyle,
 } from "../core/types";
+import { AbstractFullscreenControl } from "../standard/control/fullscreen";
+import { AbstractGeolocateControl } from "../standard/control/geolocate";
+import type { StandardControlDefinition } from "../standard/control/types";
+import { AbstractPopupOverlay } from "../standard/overlay/popup";
+import type { StandardOverlayDefinition } from "../standard/overlay/types";
 
 interface PseudoNativeMap {
   engine: string;
@@ -67,6 +77,66 @@ function capabilityTable(
     "overlay.vector": {
       level: "native",
       summary: "Vector overlays are supported.",
+    },
+    "overlay.marker": {
+      level: "native",
+      summary: "Marker overlays are supported.",
+    },
+    "overlay.popup": {
+      level: "native",
+      summary: "Popup overlays are supported.",
+    },
+    "overlay.polyline": {
+      level: "native",
+      summary: "Polyline overlays are supported.",
+    },
+    "overlay.polygon": {
+      level: "native",
+      summary: "Polygon overlays are supported.",
+    },
+    "overlay.circle": {
+      level: "native",
+      summary: "Circle overlays are supported.",
+    },
+    "overlay.marker.drag": {
+      level: "native",
+      summary: "Marker dragging is supported.",
+    },
+    "overlay.marker.bindPopup": {
+      level: "native",
+      summary: "Marker to popup binding is supported.",
+    },
+    "overlay.popup.open": {
+      level: "native",
+      summary: "Popup open state is supported.",
+    },
+    "control.navigation": {
+      level: "native",
+      summary: "Navigation control is supported.",
+    },
+    "control.scale": {
+      level: "native",
+      summary: "Scale control is supported.",
+    },
+    "control.fullscreen": {
+      level: "native",
+      summary: "Fullscreen control is supported.",
+    },
+    "control.fullscreen.active": {
+      level: "native",
+      summary: "Fullscreen active state is supported.",
+    },
+    "control.geolocate": {
+      level: "native",
+      summary: "Geolocate control is supported.",
+    },
+    "control.geolocate.tracking": {
+      level: "native",
+      summary: "Geolocate tracking state is supported.",
+    },
+    "control.attribution": {
+      level: "native",
+      summary: "Attribution control is supported.",
     },
     "control.custom": {
       level: "native",
@@ -134,12 +204,97 @@ function shortJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-function describeLayerPayload(layer: AbstractLayer): LayerDefinition {
-  return layer.toLayerDefinition();
+function isStandardOverlayDefinition(
+  definition: OverlayDefinition,
+): definition is StandardOverlayDefinition {
+  return (
+    definition.kind === "marker" ||
+    definition.kind === "popup" ||
+    definition.kind === "dom" ||
+    definition.kind === "polyline" ||
+    definition.kind === "polygon" ||
+    definition.kind === "circle"
+  );
+}
+
+function isStandardControlDefinition(
+  definition: ControlDefinition,
+): definition is StandardControlDefinition {
+  return (
+    definition.kind === "navigation" ||
+    definition.kind === "scale" ||
+    definition.kind === "fullscreen" ||
+    definition.kind === "geolocate" ||
+    definition.kind === "attribution"
+  );
+}
+
+function formatLngLat(value: LngLatLike): string {
+  const literal = toLngLatLiteral(value);
+  return `[${literal.lng}, ${literal.lat}]`;
+}
+
+function describeOverlayDefinition(
+  definition: OverlayDefinition,
+  engine: "maplibre" | "bmapgl",
+): string {
+  if (!isStandardOverlayDefinition(definition)) {
+    return `kind=${definition.kind}, payload=${shortJson(definition)}`;
+  }
+
+  switch (definition.kind) {
+    case "marker":
+      return `kind=marker, coordinate=${formatLngLat(definition.options.coordinate)}, draggable=${definition.options.draggable ?? false}, popupId=${definition.popupId ?? "none"}`;
+    case "popup":
+      return `kind=popup, coordinate=${formatLngLat(definition.options.coordinate)}, open=${definition.options.open ?? false}`;
+    case "dom":
+      return `kind=dom, coordinate=${formatLngLat(definition.options.coordinate)}, interactive=${definition.options.interactive ?? false}`;
+    case "polyline":
+      return `kind=polyline, points=${definition.options.coordinates.length}, strategy=${engine === "maplibre" ? "temporary source/layer bridge" : "native polyline"}`;
+    case "polygon":
+      return `kind=polygon, points=${definition.options.coordinates.length}, strategy=${engine === "maplibre" ? "temporary source/layer bridge" : "native polygon"}`;
+    case "circle":
+      return `kind=circle, center=${formatLngLat(definition.options.coordinate)}, radius=${definition.options.radius}, strategy=${engine === "maplibre" ? "temporary source/layer bridge" : "native circle"}`;
+    default:
+      return "kind=unknown";
+  }
+}
+
+function describeControlDefinition(definition: ControlDefinition): string {
+  if (!isStandardControlDefinition(definition)) {
+    return `kind=${definition.kind}, payload=${shortJson(definition)}`;
+  }
+
+  switch (definition.kind) {
+    case "navigation":
+      return `kind=navigation, position=${definition.position ?? "top-right"}, showZoom=${definition.options.showZoom ?? true}, showCompass=${definition.options.showCompass ?? true}`;
+    case "scale":
+      return `kind=scale, position=${definition.position ?? "bottom-left"}, unit=${definition.options.unit ?? "metric"}`;
+    case "fullscreen":
+      return `kind=fullscreen, position=${definition.position ?? "top-right"}, active=${definition.options.active ?? false}`;
+    case "geolocate":
+      return `kind=geolocate, position=${definition.position ?? "top-right"}, tracking=${definition.options.tracking ?? false}`;
+    case "attribution": {
+      const value = definition.options.customAttribution;
+      const count = Array.isArray(value) ? value.length : value ? 1 : 0;
+      return `kind=attribution, position=${definition.position ?? "bottom-right"}, customAttributionCount=${count}`;
+    }
+    default:
+      return "kind=unknown";
+  }
 }
 
 abstract class BasePseudoAdapter extends AbstractMapAdapter {
   public abstract override readonly engine: string;
+  private readonly popupOpenStates = new Map<string, boolean>();
+  private readonly fullscreenActiveStates = new Map<string, boolean>();
+  private readonly geolocateRuntimeStates = new Map<
+    string,
+    {
+      tracking: boolean;
+      locateRequestVersion: number;
+    }
+  >();
 
   public override async load(): Promise<void> {
     this.record(`[${this.engine}] load()`);
@@ -234,6 +389,141 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter {
       lat: point.y / -10,
     };
   }
+
+  protected syncOverlayRuntimeState(overlay: AbstractOverlay): void {
+    if (!(overlay instanceof AbstractPopupOverlay)) {
+      return;
+    }
+
+    this.syncObservedBooleanState(
+      this.popupOpenStates,
+      overlay.id,
+      overlay.openState,
+      () => {
+        emitOverlayEvent(overlay, "opened", {
+          id: overlay.id,
+        });
+      },
+      () => {
+        emitOverlayEvent(overlay, "closed", {
+          id: overlay.id,
+        });
+      },
+    );
+  }
+
+  protected clearOverlayRuntimeState(overlayId: string): void {
+    this.popupOpenStates.delete(overlayId);
+  }
+
+  protected syncControlRuntimeState(
+    mapHandle: unknown,
+    control: AbstractControl,
+  ): void {
+    if (control instanceof AbstractFullscreenControl) {
+      this.syncObservedBooleanState(
+        this.fullscreenActiveStates,
+        control.id,
+        control.active,
+        () => {
+          emitControlEvent(control, "entered", {
+            id: control.id,
+          });
+        },
+        () => {
+          emitControlEvent(control, "exited", {
+            id: control.id,
+          });
+        },
+      );
+
+      return;
+    }
+
+    if (control instanceof AbstractGeolocateControl) {
+      this.syncGeolocateRuntimeState(mapHandle, control);
+    }
+  }
+
+  protected clearControlRuntimeState(controlId: string): void {
+    this.fullscreenActiveStates.delete(controlId);
+    this.geolocateRuntimeStates.delete(controlId);
+  }
+
+  private syncObservedBooleanState(
+    states: Map<string, boolean>,
+    entityId: string,
+    nextValue: boolean,
+    onTrue: () => void,
+    onFalse: () => void,
+  ): void {
+    const previousValue = states.get(entityId);
+
+    // First observation builds runtime baseline.
+    // Emit only positive confirmation to avoid fake "closed/exited" noise.
+    if (previousValue === undefined) {
+      states.set(entityId, nextValue);
+      if (nextValue) {
+        onTrue();
+      }
+      return;
+    }
+
+    if (previousValue === nextValue) {
+      return;
+    }
+
+    states.set(entityId, nextValue);
+    if (nextValue) {
+      onTrue();
+    } else {
+      onFalse();
+    }
+  }
+
+  private syncGeolocateRuntimeState(
+    mapHandle: unknown,
+    control: AbstractGeolocateControl,
+  ): void {
+    const currentState = {
+      tracking: control.tracking,
+      locateRequestVersion: control.options.locateRequestVersion ?? 0,
+    };
+
+    const previousState = this.geolocateRuntimeStates.get(control.id) ?? {
+      tracking: false,
+      locateRequestVersion: 0,
+    };
+
+    const locateRequested =
+      currentState.locateRequestVersion > previousState.locateRequestVersion;
+    const trackingStarted = currentState.tracking && !previousState.tracking;
+
+    if (!locateRequested && !trackingStarted) {
+      this.geolocateRuntimeStates.set(control.id, currentState);
+      return;
+    }
+
+    const timeout = control.options.positionOptions?.timeout;
+    if (timeout === 0) {
+      emitControlEvent(control, "error", {
+        id: control.id,
+        code: 3,
+        message: "Pseudo geolocation request timed out immediately (timeout=0).",
+      });
+      this.geolocateRuntimeStates.set(control.id, currentState);
+      return;
+    }
+
+    const runtime = mapHandle as PseudoNativeMap;
+    emitControlEvent(control, "geolocate", {
+      id: control.id,
+      coordinate: toLngLatLiteral(runtime.view.center),
+      accuracyMeters: 15,
+    });
+
+    this.geolocateRuntimeStates.set(control.id, currentState);
+  }
 }
 
 export class PseudoMapLibreAdapter extends BasePseudoAdapter {
@@ -272,7 +562,7 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
   }
 
   public override mountLayer(_mapHandle: unknown, layer: AbstractLayer): unknown {
-    const definition = describeLayerPayload(layer);
+    const definition = layer.toLayerDefinition();
     this.record(
       `[maplibre] map.addLayer(${shortJson(
         definition.domain === "data" && definition.mapLibreLayer
@@ -303,10 +593,12 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
     _mapHandle: unknown,
     overlay: AbstractOverlay,
   ): unknown {
+    const definition = overlay.toOverlayDefinition();
     this.record(
-      `[maplibre] mountOverlay("${overlay.id}") via Marker/Popup bridge`,
+      `[maplibre] mountOverlay("${overlay.id}", ${describeOverlayDefinition(definition, "maplibre")})`,
     );
-    return { type: "overlay", id: overlay.id };
+    this.syncOverlayRuntimeState(overlay);
+    return { type: "overlay", id: overlay.id, kind: definition.kind };
   }
 
   public override updateOverlay(
@@ -314,7 +606,11 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
     overlay: AbstractOverlay,
     _overlayHandle: unknown,
   ): void {
-    this.record(`[maplibre] syncOverlay("${overlay.id}")`);
+    const definition = overlay.toOverlayDefinition();
+    this.record(
+      `[maplibre] syncOverlay("${overlay.id}", ${describeOverlayDefinition(definition, "maplibre")})`,
+    );
+    this.syncOverlayRuntimeState(overlay);
   }
 
   public override unmountOverlay(
@@ -323,16 +619,19 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
     _overlayHandle: unknown,
   ): void {
     this.record(`[maplibre] unmountOverlay("${overlay.id}")`);
+    this.clearOverlayRuntimeState(overlay.id);
   }
 
   public override mountControl(
     _mapHandle: unknown,
     control: AbstractControl,
   ): unknown {
+    const definition = control.toControlDefinition();
     this.record(
-      `[maplibre] map.addControl("${control.id}", position="${control.position}")`,
+      `[maplibre] map.addControl("${control.id}", ${describeControlDefinition(definition)})`,
     );
-    return { type: "control", id: control.id };
+    this.syncControlRuntimeState(_mapHandle, control);
+    return { type: "control", id: control.id, kind: definition.kind };
   }
 
   public override updateControl(
@@ -340,7 +639,11 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
     control: AbstractControl,
     _controlHandle: unknown,
   ): void {
-    this.record(`[maplibre] syncControl("${control.id}")`);
+    const definition = control.toControlDefinition();
+    this.record(
+      `[maplibre] syncControl("${control.id}", ${describeControlDefinition(definition)})`,
+    );
+    this.syncControlRuntimeState(_mapHandle, control);
   }
 
   public override unmountControl(
@@ -349,6 +652,7 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
     _controlHandle: unknown,
   ): void {
     this.record(`[maplibre] map.removeControl("${control.id}")`);
+    this.clearControlRuntimeState(control.id);
   }
 }
 
@@ -382,6 +686,72 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
             level: "emulated",
             summary: "Layers often translate into overlay groups.",
             fallback: "Materialize layers into overlay batches.",
+          },
+          "overlay.marker": {
+            level: "native",
+            summary: "Marker overlays map directly to BMapGL markers.",
+          },
+          "overlay.popup": {
+            level: "native",
+            summary: "Popup overlays map to native info window primitives.",
+          },
+          "overlay.polyline": {
+            level: "native",
+            summary: "Polyline overlays map to native polylines.",
+          },
+          "overlay.polygon": {
+            level: "native",
+            summary: "Polygon overlays map to native polygons.",
+          },
+          "overlay.circle": {
+            level: "native",
+            summary: "Circle overlays map to native circles.",
+          },
+          "overlay.marker.drag": {
+            level: "emulated",
+            summary: "Marker drag behavior depends on overlay kind configuration.",
+            fallback: "Restrict drag support to marker-like overlays.",
+          },
+          "overlay.marker.bindPopup": {
+            level: "emulated",
+            summary: "Marker and popup binding needs adapter-side relationship tracking.",
+            fallback: "Bridge marker click events to popup state.",
+          },
+          "overlay.popup.open": {
+            level: "native",
+            summary: "Popup open and close state can map to native calls.",
+          },
+          "control.navigation": {
+            level: "native",
+            summary: "Navigation control maps to native zoom and pan controls.",
+          },
+          "control.scale": {
+            level: "native",
+            summary: "Scale control maps to native scale control.",
+          },
+          "control.fullscreen": {
+            level: "emulated",
+            summary: "Fullscreen control relies on container DOM fullscreen APIs.",
+            fallback: "Use pseudo fullscreen mode on the map container.",
+          },
+          "control.fullscreen.active": {
+            level: "emulated",
+            summary: "Fullscreen active state is tracked through DOM bridge events.",
+            fallback: "Track active state in adapter-side control registry.",
+          },
+          "control.geolocate": {
+            level: "emulated",
+            summary: "Geolocate control requires adapter orchestration around browser geolocation.",
+            fallback: "Bridge browser geolocation to map center and marker updates.",
+          },
+          "control.geolocate.tracking": {
+            level: "emulated",
+            summary: "Continuous tracking depends on watchPosition lifecycle management.",
+            fallback: "Fallback to repeated locate-once requests when tracking is unavailable.",
+          },
+          "control.attribution": {
+            level: "native",
+            summary: "Attribution control maps to native copyright controls.",
           },
           "events.map-mouse": {
             level: "native",
@@ -468,7 +838,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override mountLayer(_mapHandle: unknown, layer: AbstractLayer): unknown {
-    const definition = describeLayerPayload(layer);
+    const definition = layer.toLayerDefinition();
 
     if (definition.domain === "system") {
       this.record(
@@ -488,7 +858,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
     layer: AbstractLayer,
     _layerHandle: unknown,
   ): void {
-    const definition = describeLayerPayload(layer);
+    const definition = layer.toLayerDefinition();
     this.record(
       definition.domain === "system"
         ? `[bmapgl] syncSystemLayer("${layer.id}")`
@@ -501,7 +871,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
     layer: AbstractLayer,
     _layerHandle: unknown,
   ): void {
-    const definition = describeLayerPayload(layer);
+    const definition = layer.toLayerDefinition();
     this.record(
       definition.domain === "system"
         ? `[bmapgl] disposeSystemLayer("${layer.id}")`
@@ -513,10 +883,12 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
     _mapHandle: unknown,
     overlay: AbstractOverlay,
   ): unknown {
+    const definition = overlay.toOverlayDefinition();
     this.record(
-      `[bmapgl] map.addOverlay("${overlay.id}") // maps to Marker / Polyline / Polygon / custom Overlay.initialize`,
+      `[bmapgl] map.addOverlay("${overlay.id}", ${describeOverlayDefinition(definition, "bmapgl")})`,
     );
-    return { type: "overlay", id: overlay.id };
+    this.syncOverlayRuntimeState(overlay);
+    return { type: "overlay", id: overlay.id, kind: definition.kind };
   }
 
   public override updateOverlay(
@@ -524,7 +896,11 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
     overlay: AbstractOverlay,
     _overlayHandle: unknown,
   ): void {
-    this.record(`[bmapgl] syncOverlay("${overlay.id}")`);
+    const definition = overlay.toOverlayDefinition();
+    this.record(
+      `[bmapgl] syncOverlay("${overlay.id}", ${describeOverlayDefinition(definition, "bmapgl")})`,
+    );
+    this.syncOverlayRuntimeState(overlay);
   }
 
   public override unmountOverlay(
@@ -533,16 +909,19 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
     _overlayHandle: unknown,
   ): void {
     this.record(`[bmapgl] map.removeOverlay("${overlay.id}")`);
+    this.clearOverlayRuntimeState(overlay.id);
   }
 
   public override mountControl(
     _mapHandle: unknown,
     control: AbstractControl,
   ): unknown {
+    const definition = control.toControlDefinition();
     this.record(
-      `[bmapgl] map.addControl("${control.id}") // anchor resolved from "${control.position}"`,
+      `[bmapgl] map.addControl("${control.id}", ${describeControlDefinition(definition)})`,
     );
-    return { type: "control", id: control.id };
+    this.syncControlRuntimeState(_mapHandle, control);
+    return { type: "control", id: control.id, kind: definition.kind };
   }
 
   public override updateControl(
@@ -550,7 +929,11 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
     control: AbstractControl,
     _controlHandle: unknown,
   ): void {
-    this.record(`[bmapgl] syncControl("${control.id}")`);
+    const definition = control.toControlDefinition();
+    this.record(
+      `[bmapgl] syncControl("${control.id}", ${describeControlDefinition(definition)})`,
+    );
+    this.syncControlRuntimeState(_mapHandle, control);
   }
 
   public override unmountControl(
@@ -559,5 +942,6 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
     _controlHandle: unknown,
   ): void {
     this.record(`[bmapgl] map.removeControl("${control.id}")`);
+    this.clearControlRuntimeState(control.id);
   }
 }

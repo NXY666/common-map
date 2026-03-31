@@ -5,7 +5,11 @@ import {
   type EventPayload,
   type Subscription,
 } from "./events";
-import { type MapCapability } from "./capability";
+import {
+  getControlRequiredCapabilities,
+  getOverlayRequiredCapabilities,
+  type MapCapability,
+} from "./capability";
 import type { AbstractMapAdapter } from "./adapter";
 import type { AbstractControl } from "./control";
 import type { AbstractLayer } from "./layer";
@@ -358,6 +362,10 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public addOverlay<TOverlay extends AbstractOverlay>(overlay: TOverlay): TOverlay {
+    if (this.nativeMap) {
+      this.assertOverlayCapabilities(overlay);
+    }
+
     this.ensureUnique(this.overlays, overlay.id, "overlay");
     bindManagedEntity(overlay, this);
     this.overlays.set(overlay.id, overlay);
@@ -395,6 +403,10 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public addControl<TControl extends AbstractControl>(control: TControl): TControl {
+    if (this.nativeMap) {
+      this.assertControlCapabilities(control);
+    }
+
     this.ensureUnique(this.controls, control.id, "control");
     bindManagedEntity(control, this);
     this.controls.set(control.id, control);
@@ -492,6 +504,8 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
           return;
         }
 
+        this.assertOverlayCapabilities(overlay);
+
         this.adapter.updateOverlay(
           this.nativeMap,
           overlay,
@@ -509,6 +523,8 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
         if (!this.nativeMap || !control.isMounted()) {
           return;
         }
+
+        this.assertControlCapabilities(control);
 
         this.adapter.updateControl(
           this.nativeMap,
@@ -565,6 +581,8 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
       return;
     }
 
+    this.assertOverlayCapabilities(overlay);
+
     const handle = this.adapter.mountOverlay(this.nativeMap, overlay);
     mountManagedEntity(overlay, this, handle);
   }
@@ -586,6 +604,8 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     if (!this.nativeMap || control.isMounted()) {
       return;
     }
+
+    this.assertControlCapabilities(control);
 
     const handle = this.adapter.mountControl(this.nativeMap, control);
     mountManagedEntity(control, this, handle);
@@ -611,6 +631,22 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   ): void {
     if (registry.has(id)) {
       throw new Error(`Duplicate ${label} id "${id}" on map "${this.id}".`);
+    }
+  }
+
+  private assertOverlayCapabilities(overlay: AbstractOverlay): void {
+    const definition = overlay.toOverlayDefinition();
+
+    for (const capability of getOverlayRequiredCapabilities(definition)) {
+      this.adapter.capabilities.assert(capability);
+    }
+  }
+
+  private assertControlCapabilities(control: AbstractControl): void {
+    const definition = control.toControlDefinition();
+
+    for (const capability of getControlRequiredCapabilities(definition)) {
+      this.adapter.capabilities.assert(capability);
     }
   }
 

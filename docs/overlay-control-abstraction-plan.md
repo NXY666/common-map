@@ -4,12 +4,13 @@
 
 最终结论只有一句话：
 
-> 丰富的 `Overlay / Control` 公共 API 不应继续塞进 `core/`，而应单独放进一个 `standard/` 标准对象层；`core/` 只保留最小协议，`adapter` 只负责翻译和桥接，所有便利方法全部固化在 `standard/` 里。
+> 丰富的 `Overlay / Control` 公共 API 不应继续塞进 `core/`，而应单独放进一个 `standard/` 标准对象层；`core/` 只保留最小协议；标准对象的公开 API 全部固化在 `standard/`；adapter 继续作为统一描述到 SDK 的翻译中心；若某个引擎需要 provider helper 类，也只能复用这些 `standard` 抽象并保持 adapter 内部可见。
 
 这样做的目的很明确：
 
 - 不污染最小内核
 - 不让 adapter 发明公开 API
+- 让各 provider 共享同一套对象抽象，而不是各写各的 Overlay / Control 模型
 - 不让业务子类反复补 `open/close/show/hide/appendCoordinate`
 - 保持对象模型稳定
 
@@ -19,6 +20,7 @@
 
 ```text
 src/unified-map/
+  index.ts
   core/
     adapter.ts
     control.ts
@@ -66,8 +68,14 @@ src/unified-map/
   - 所有公开便利方法
   - 跨引擎通用的默认实现
 - `adapter/`
-  - 只能消费 `core` 或 `standard` 对象
-  - 不能对外再发明方法
+  - provider 落地仍由 `MapAdapter` 统一负责，覆盖地图创建/销毁、视角、投影、运行时配置，以及 `source / layer / overlay / control` 生命周期翻译
+  - 若某引擎需要 provider-specific `Overlay / Control` helper 类，只能复用 `standard` 抽象，并默认保持 adapter 内部可见
+  - 不能绕开 `standard` 再发明一套公开对象 API
+
+额外边界一并定死：
+
+- 根入口 `src/unified-map/index.ts` 在引入 `standard/` 后必须追加 `export * from "./standard"`，但不能转出 provider 私有实现
+- `standard` 对象必须继续是 `core.AbstractOverlay / AbstractControl` 的子类型，`AbstractMap.addOverlay()` 与 `AbstractMap.addControl()` 的入参边界不变
 
 ## 2. 参考了哪些框架，取了什么
 
@@ -166,27 +174,61 @@ src/unified-map/
 - `moveTo`
 - `startLocate`
 
-### 3.3 adapter 只负责翻译，不负责 API 设计
+### 3.3 adapter 继续做翻译中心，`standard` 只收口对象 API
 
-adapter 的权限被严格限制为：
+这里要分清两层：
 
-- `mount`
-- `update`
-- `unmount`
+- `standard` 负责定义公开对象模型和通用方法
+- adapter 继续承担统一描述到 SDK 的翻译职责；若需要 provider helper 类，也只能把它们当成 adapter 内部细节，不能变成对外 API 边界
+
+`MapAdapter` 的全局职责边界不收缩，仍然包括：
+
+- `createMap / destroyMap`
+- `setView / getView`
+- `updateMapOptions`
+- `project / unproject`
+- `mountSource / updateSource / unmountSource`
+- `mountLayer / updateLayer / unmountLayer`
+- 各实体生命周期方法统称：
+  `mountOverlay / updateOverlay / unmountOverlay` 与
+  `mountControl / updateControl / unmountControl`
 - 事件回灌
 - 能力降级与模拟
 
-adapter 明确不能做：
+这里所谓“收口”，只针对 `Overlay / Control` 的公开对象 API：
 
-- 再定义公开方法
+- 公开方法只能定义在 `standard` 或业务子类里
+- adapter 不得把地图级职责拆出去形成第二条架构主线
+- `Map.addOverlay()` / `Map.addControl()` 仍然接收统一抽象实体，而不是 provider 具体类
+
+adapter 侧实现明确不能做：
+
+- 绕开 `standard` 再定义另一套公开方法
 - 再定义新对象模型
 - 把 provider 私有命名暴露给业务层
+- 让业务层必须显式依赖 MapLibre / BMapGL 专属 `Overlay / Control` 类
+
+### 3.4 标准对象可用性必须先对齐 capability
+
+`standard` 定义的是公开 API 面，不是“所有引擎都必须可用”的承诺。
+
+落地前必须先把 capability 从当前的分类级能力，扩到对象级和命令级，至少覆盖：
+
+- `overlay.marker / overlay.popup / overlay.dom / overlay.polyline / overlay.polygon / overlay.circle`
+- `control.navigation / control.scale / control.fullscreen / control.geolocate / control.attribution`
+- 需要分级承诺的方法能力，例如 `overlay.marker.drag`、`overlay.marker.bindPopup`、`overlay.popup.open`、`control.fullscreen.active`、`control.geolocate.tracking`
+
+统一行为也要先定死：
+
+- `none`：当前能力不提供统一支持；允许对象存在于草稿态，但在挂载或调用相关能力时必须显式失败；禁止 silent no-op
+- `emulated`：adapter 可以通过桥接、临时 source/layer、DOM 或 registry 模拟，并在 capability 里写明 fallback
+- `native`：adapter 直接映射到底层 SDK 对象或状态
 
 ## 4. standard 层的最终对象集
 
 ### 4.1 Overlay
 
-必须提供这 6 个标准对象：
+`standard/overlay` 必须定义这 6 个标准对象基类：
 
 - `AbstractMarkerOverlay`
 - `AbstractPopupOverlay`
@@ -201,9 +243,15 @@ adapter 明确不能做：
 - `AbstractAnchoredOverlay`
 - `AbstractPathOverlay`
 
+注意：
+
+- 这里的“必须定义”指标准层必须提供统一语义与公开 API
+- 不等于每个 adapter 都必须对这 6 个对象宣称 `native` 支持
+- 某个对象能否挂载、以何种方式挂载，取决于 capability 声明
+
 ### 4.2 Control
 
-必须提供这 5 个标准对象：
+`standard/control` 必须定义这 5 个标准对象基类：
 
 - `AbstractNavigationControl`
 - `AbstractScaleControl`
@@ -215,7 +263,28 @@ adapter 明确不能做：
 
 - `AbstractStandardControl`
 
-### 4.3 明确不做
+同样地：
+
+- 这里要求的是标准对象语义存在，不是所有引擎一律原生可用
+- `fullscreen / geolocate` 这类状态型控件尤其要依赖命令级 capability 声明
+
+### 4.3 Vector Overlay 与 DataLayer 的硬边界
+
+`Overlay` 和 `DataLayer` 不能并列承担同一类公开语义，否则迟早形成双轨对象模型。
+
+硬边界如下：
+
+- `Marker / Popup / DomOverlay` 是对象优先路径，适合少量、高交互、强对象生命周期的实体
+- `Polyline / Polygon / Circle` 只用于少量、强交互、需要对象级命令和事件的几何体
+- 只要需求偏向批量渲染、专题表达、source 驱动、样式表达式、过滤、聚合、图层排序，就必须走 `Source + DataLayer`
+- adapter 即便把 vector overlay 内部桥接成临时 source/layer，那也只是内部实现细节，不能对外形成第二套公开模型
+
+按现有引擎特性再补一条硬约束：
+
+- 对 MapLibre，线/面/圆的主路径仍然是 `Source + DataLayer`
+- vector overlay 只作为 capability-gated 的对象式逃生舱，用于确实需要对象 API 的少量场景
+
+### 4.4 明确不做
 
 这版标准层里不提供：
 
@@ -536,6 +605,8 @@ export interface BaseStandardOverlayDefinition<
 > {
   id: string;
   kind: TKind;
+  visible?: boolean;
+  zIndex?: number;
   options: TOptions;
   metadata?: Record<string, unknown>;
 }
@@ -569,12 +640,13 @@ export type StandardOverlayDefinition =
   | CircleOverlayDefinition;
 ```
 
-元数据单一真相规则：
+Definition 读取与投影规则：
 
-- 运行时唯一真相源是 `options.metadata`
-- `definition.metadata` 只是 `options.metadata` 的只读投影
-- adapter 不得自行制造第二份 metadata，也不得把二者视为独立字段
-- 如果后续实现重构 `AbstractMapEntity`，应优先把 metadata 提升为实体级字段并从 options 中移除
+- 运行时唯一真相源是 `options.*`
+- 对 overlay 来说，`visible / zIndex / metadata` 都先读 `options.visible / options.zIndex / options.metadata`
+- `definition.visible / definition.zIndex / definition.metadata` 只是为了兼容当前 `core/types.ts` 而保留的只读投影，必须和对应的 `options.*` 保持一致
+- adapter 与业务子类都不得自行制造第二份状态，也不得把顶层字段与 `options.*` 视为独立来源
+- 如果后续实现重构 `AbstractMapEntity`，应整体消除这类重复投影，而不是只挪 `metadata`
 
 ### 6.4 事件定义
 
@@ -934,6 +1006,8 @@ export abstract class AbstractMarkerOverlay<
     return {
       id: this.id,
       kind: this.kind,
+      visible: this.visible,
+      zIndex: this.zIndex,
       options: this.options,
       metadata: this.options.metadata,
       popupId: this.popupRef?.id,
@@ -1043,6 +1117,8 @@ export abstract class AbstractPopupOverlay<
     return {
       id: this.id,
       kind: this.kind,
+      visible: this.visible,
+      zIndex: this.zIndex,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1106,6 +1182,8 @@ export abstract class AbstractDomOverlay<
     return {
       id: this.id,
       kind: this.kind,
+      visible: this.visible,
+      zIndex: this.zIndex,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1149,6 +1227,8 @@ export abstract class AbstractPolylineOverlay<
     return {
       id: this.id,
       kind: this.kind,
+      visible: this.visible,
+      zIndex: this.zIndex,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1187,6 +1267,8 @@ export abstract class AbstractPolygonOverlay<
     return {
       id: this.id,
       kind: this.kind,
+      visible: this.visible,
+      zIndex: this.zIndex,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1246,6 +1328,8 @@ export abstract class AbstractCircleOverlay<
     return {
       id: this.id,
       kind: this.kind,
+      visible: this.visible,
+      zIndex: this.zIndex,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1315,6 +1399,8 @@ export interface BaseStandardControlDefinition<
 > {
   id: string;
   kind: TKind;
+  position?: ControlSlot;
+  visible?: boolean;
   options: TOptions;
   metadata?: Record<string, unknown>;
 }
@@ -1342,7 +1428,10 @@ export type StandardControlDefinition =
   | AttributionControlDefinition;
 ```
 
-`StandardControlDefinition.metadata` 与 `options.metadata` 沿用上面的同一真相规则。
+control definition 沿用同一规则：
+
+- `position / visible / metadata` 运行时先读 `options.position / options.visible / options.metadata`
+- `definition.position / definition.visible / definition.metadata` 只是与当前 `core/types.ts` 对齐的只读投影
 
 ### 7.4 事件定义
 
@@ -1525,6 +1614,8 @@ export abstract class AbstractNavigationControl<
     return {
       id: this.id,
       kind: this.kind,
+      position: this.position,
+      visible: this.visible,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1579,6 +1670,8 @@ export abstract class AbstractScaleControl<
     return {
       id: this.id,
       kind: this.kind,
+      position: this.position,
+      visible: this.visible,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1637,6 +1730,8 @@ export abstract class AbstractFullscreenControl<
     return {
       id: this.id,
       kind: this.kind,
+      position: this.position,
+      visible: this.visible,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1720,6 +1815,8 @@ export abstract class AbstractGeolocateControl<
     return {
       id: this.id,
       kind: this.kind,
+      position: this.position,
+      visible: this.visible,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1768,6 +1865,8 @@ export abstract class AbstractAttributionControl<
     return {
       id: this.id,
       kind: this.kind,
+      position: this.position,
+      visible: this.visible,
       options: this.options,
       metadata: this.options.metadata,
     };
@@ -1807,35 +1906,49 @@ export class UserLocationMarker extends AbstractMarkerOverlay {
 }
 ```
 
-### 8.2 adapter
+### 8.2 adapter 侧实现
 
-adapter 只能做四件事：
+adapter 侧实现允许做这些事：
 
-- 把标准对象翻译成原生对象
-- 在更新时消费标准 options 与 command-state
-- 监听原生状态并桥接事件
+- 消费标准 definition 与 command-state，把统一对象翻译成 MapLibre / BMapGL 等 SDK 调用
+- 如有必要，在 adapter 内部复用或继承 `standard` 抽象类，形成 provider helper
+- 在运行时消费标准 options 与 command-state，并桥接原生状态
 - 对不完全同构的能力做模拟
+- 维护 provider 侧 registry、临时 source/layer 或 DOM bridge 等内部实现细节
 
 adapter 明确不能做：
 
-- 重新定义公开方法
-- 暴露 provider 私有对象模型
+- 重新定义公开方法语义
+- 绕开 `standard` 暴露另一套 provider 私有对象模型
 - 把便利方法藏在 adapter helper 里
+- 要求业务层按引擎切换不同 `Overlay / Control` 具体类
 
 ### 8.3 `pseudo/demo*`
 
 `pseudo/demo*` 是配套示例，不属于 `core` 契约本身；但只要继续保留，就必须和目标对象模型同步。
 
-当前仓库里仍有两处旧式用法：
+当前仓库里仍有三处旧式用法：
 
 - `pseudo/demo-models.ts` 里的 `DemoMarkerOverlay` 仍直接继承 `core.AbstractOverlay`
+- `pseudo/demo-models.ts` 里的 `DemoNavigationControl` 仍直接继承 `core.AbstractControl`
 - `pseudo/demo.ts` 仍直接调用 `overlay.setCoordinate(...)`
 
-这两处都应迁到 `standard` 层：
+这些示例都应迁到 `standard` 层：
 
 - demo marker 改为继承 `standard/overlay/marker.AbstractMarkerOverlay`
+- demo navigation control 改为继承 `standard/control/navigation.AbstractNavigationControl`
 - demo popup/path 等如果存在，也全部继承 `standard` 层对应对象
-- `demo.ts` 只调用 `standard` 层公开 API，不再演示已收口的旧 core 几何接口
+- demo 里的其他标准 control 示例如果存在，也全部继承 `standard/control/*` 对应基类
+- `demo.ts` 只调用 `standard` 层公开 API，不再演示已收口的旧 core 几何接口，并继续覆盖 `addOverlay()` 与 `addControl()` 两条路径
+
+### 8.4 导出与迁移顺序
+
+为了避免 `standard` 落地后还处在“能写不能用”的状态，迁移顺序也要写进方案：
+
+1. 新增 `standard/` 与 `standard/index.ts`，同时在根入口 `src/unified-map/index.ts` 增加导出，但不导出 provider 私有 helper。
+2. 让 `standard` definition 先对齐当前 `core/types.ts` 的兼容字段投影规则，再迁移 demo 和业务对象。
+3. 把 `pseudo/demo*` 迁到 `standard` 对象模型，至少显式完成 `DemoMarkerOverlay` 与 `DemoNavigationControl` 的基类迁移，并验证 `Map.addOverlay()` / `addControl()` 的统一入参边界没有变化。
+4. 最后再让真实 adapter 接入对象级/命令级 capability，逐个声明 `none / emulated / native`。
 
 ## 9. 为什么这版更合理
 
@@ -1843,7 +1956,10 @@ adapter 明确不能做：
 
 - `core` 保持干净，只做协议
 - `standard` 提供稳定、完整、可继承的 rich API
-- `adapter` 回归翻译器角色
+- adapter 继续保有完整翻译职责，但不再发明另一套公开对象 API
+- provider helper 若存在，也被压回 adapter 内部，不外泄到业务层
+- vector overlay 与 `DataLayer` 的公开边界被写死，避免长期双轨
+- 可用性承诺先走 capability，而不是先写“必须支持”
 - 业务子类基本不再需要补通用公开方法
 
 这才是长期可维护的统一对象模型。

@@ -1,7 +1,7 @@
 ---
 name: implementation-plan-analyst
-description: "Review an implementation plan for bad ideas, goal mismatch, missing or wrong changes, complexity and coupling growth, poor language best practices, weak architecture integration, and whether refactoring is better than patching. Use when auditing a proposal by severity without editing code."
-argument-hint: "Provide objective, implementation plan/details, and optional diff or file references."
+description: "Review an unimplemented implementation-plan draft for bad ideas, goal mismatch, missing or wrong changes, complexity and coupling growth, poor language best practices, weak architecture integration, and whether refactoring is better than patching. Use when auditing a proposal draft by severity without editing code."
+argument-hint: "Provide objective and draft-plan details (not implemented code), plus optional architecture references."
 user-invocable: true
 ---
 
@@ -9,6 +9,11 @@ user-invocable: true
 
 ## What This Skill Produces
 A review-only audit report that ranks issues by severity and decides whether the proposal should be rejected, revised, or replaced by refactoring.
+
+## Input Assumption
+- Every invocation is based on an unimplemented proposal draft.
+- Treat all implementation statements as planned changes, not completed changes.
+- Do not switch into code review of already-shipped behavior.
 
 ## When to Use
 - You need to judge if a proposed implementation is fundamentally harmful.
@@ -20,6 +25,7 @@ A review-only audit report that ranks issues by severity and decides whether the
 1. Do not preserve backward compatibility by default.
 2. Ignore delivery cost; optimize for maintainability, elegance, and long-term clarity.
 3. Do not edit code in this workflow; provide analysis only.
+4. Do not treat missing tests as a finding in this workflow.
 
 ## Required Review Dimensions
 1. Is the plan itself a bad idea that works against the goal?
@@ -32,6 +38,7 @@ A review-only audit report that ranks issues by severity and decides whether the
 ## Procedure
 1. Extract context.
 - Identify the objective, boundaries, and current architecture constraints.
+- Confirm the subject is an unimplemented draft plan.
 - Normalize all claims into verifiable statements.
 
 2. Run harmfulness gate.
@@ -49,6 +56,7 @@ A review-only audit report that ranks issues by severity and decides whether the
 5. Evaluate elegance and best practices.
 - Check naming, API boundaries, error handling, data flow, and idiomatic language usage.
 - Flag anti-patterns and overengineering.
+- Skip test-coverage and missing-test concerns for draft analysis.
 
 6. Evaluate architecture integration.
 - Determine whether changes are integrated into existing abstractions or simply attached.

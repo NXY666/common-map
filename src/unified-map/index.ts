@@ -8,6 +8,7 @@ export * from "./core/map";
 export * from "./core/overlay";
 export * from "./core/source";
 export * from "./core/types";
+export * from "./standard";
 
 export * from "./pseudo/demo";
 export * from "./pseudo/demo-models";

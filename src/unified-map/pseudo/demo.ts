@@ -1,9 +1,12 @@
 import {
+  DemoFullscreenControl,
+  DemoGeolocateControl,
   DemoGeoJsonSource,
   DemoLineLayer,
   DemoMap,
   DemoMarkerOverlay,
   DemoNavigationControl,
+  DemoPopupOverlay,
   type DemoFeatureCollection,
 } from "./demo-models";
 import {
@@ -87,23 +90,51 @@ async function buildMapScenario(
     visible: true,
   });
 
+  const popup = new DemoPopupOverlay("arrival-popup", {
+    coordinate: [116.423, 39.927],
+    content: "Arrival point",
+    open: false,
+  });
+
   const control = new DemoNavigationControl("nav", {
     position: "top-right",
-    compass: true,
+    showCompass: true,
     showZoom: true,
+  });
+
+  const fullscreen = new DemoFullscreenControl("fullscreen", {
+    position: "top-right",
+    active: false,
+  });
+
+  const geolocate = new DemoGeolocateControl("locate", {
+    position: "top-right",
+    tracking: false,
   });
 
   map.addSource(source);
   map.addLayer(layer);
+  map.addOverlay(popup);
   map.addOverlay(overlay);
   map.addControl(control);
+  map.addControl(fullscreen);
+  map.addControl(geolocate);
   await map.load();
   map.mount();
 
   source.setData(createRouteData());
   layer.setVisibility(true);
+  overlay.bindPopup(popup);
+  overlay.openPopup();
+  overlay.closePopup();
+  overlay.unbindPopup();
   overlay.setCoordinate([116.426, 39.929]);
   control.setPosition("bottom-right");
+  fullscreen.enter();
+  fullscreen.exit();
+  geolocate.locateOnce();
+  geolocate.startTracking();
+  geolocate.stopTracking();
   map.setView({
     center: [116.41, 39.92],
     zoom: 12,
@@ -130,12 +161,15 @@ export async function runArchitectureDemo(): Promise<DemoResult> {
       "src/unified-map/core/overlay.ts",
       "src/unified-map/core/control.ts",
       "src/unified-map/core/adapter.ts",
+      "src/unified-map/standard/common/*.ts",
+      "src/unified-map/standard/overlay/*.ts",
+      "src/unified-map/standard/control/*.ts",
       "src/unified-map/pseudo/*.ts",
     ],
     patterns: [
       "Bridge: Map 只依赖 Adapter，不直接依赖 MapLibre / BMapGL SDK。",
       "Template Method: Source / Layer / Overlay / Control 通过 toDefinition() 暴露统一描述，再由 Adapter 落地。",
-      "Capability Profile: 所有差异化能力先声明，再决定 native / emulated / unsupported。",
+      "Capability Profile: 所有差异化能力先声明，再决定 none / emulated / native。",
       "Registry + Lifecycle: Map 统一管理注册、挂载、更新、销毁，避免对象自己到处持有引擎实例。",
     ],
     maplibreOperations: await buildMapScenario(maplibreAdapter),

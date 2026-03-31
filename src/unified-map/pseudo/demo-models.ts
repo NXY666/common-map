@@ -2,17 +2,27 @@ import type {
   LayerSpecification,
   SourceSpecification,
 } from "maplibre-gl";
-import { AbstractControl, type ControlOptions } from "../core/control";
 import { AbstractDataLayer, type DataLayerOptions } from "../core/layer";
 import { AbstractMap } from "../core/map";
-import { AbstractOverlay, type OverlayOptions } from "../core/overlay";
 import { AbstractSource } from "../core/source";
+import {
+  AbstractNavigationControl,
+} from "../standard/control/navigation";
+import { AbstractFullscreenControl } from "../standard/control/fullscreen";
+import { AbstractGeolocateControl } from "../standard/control/geolocate";
 import type {
-  ControlDefinition,
-  ControlSlot,
+  FullscreenControlOptions,
+  GeolocateControlOptions,
+  NavigationControlOptions,
+} from "../standard/control/types";
+import { AbstractMarkerOverlay } from "../standard/overlay/marker";
+import { AbstractPopupOverlay } from "../standard/overlay/popup";
+import type {
+  MarkerOverlayOptions,
+  PopupOverlayOptions,
+} from "../standard/overlay/types";
+import type {
   DataLayerDefinition,
-  LngLatLike,
-  OverlayDefinition,
   SourceDefinition,
   UnifiedMapOptions,
 } from "../core/types";
@@ -116,60 +126,78 @@ export class DemoLineLayer extends AbstractDataLayer<
   }
 }
 
-export interface DemoMarkerOverlayOptions extends OverlayOptions {
-  coordinate: LngLatLike;
+export interface DemoMarkerOverlayOptions extends MarkerOverlayOptions {
   color: string;
   label?: string;
 }
 
-export class DemoMarkerOverlay extends AbstractOverlay<DemoMarkerOverlayOptions> {
-  public readonly kind = "marker" as const;
-
+export class DemoMarkerOverlay extends AbstractMarkerOverlay<DemoMarkerOverlayOptions> {
   public constructor(id: string, options: DemoMarkerOverlayOptions) {
-    super(id, options);
-  }
-
-  public toOverlayDefinition(): OverlayDefinition<DemoMarkerOverlayOptions> {
-    return {
-      id: this.id,
-      kind: this.kind,
-      coordinate: this.options.coordinate,
-      visible: this.options.visible,
-      zIndex: this.options.zIndex,
-      options: this.options,
-      metadata: this.options.metadata,
-    };
+    super(id, {
+      draggable: false,
+      ...options,
+      visual: options.visual ?? {
+        type: "default",
+        color: options.color,
+      },
+    });
   }
 }
 
-export interface DemoNavigationControlOptions extends ControlOptions {
-  compass?: boolean;
-  showZoom?: boolean;
+export interface DemoPopupOverlayOptions extends PopupOverlayOptions {}
+
+export class DemoPopupOverlay extends AbstractPopupOverlay<DemoPopupOverlayOptions> {
+  public constructor(id: string, options: DemoPopupOverlayOptions) {
+    super(id, {
+      closeButton: true,
+      closeOnClick: true,
+      ...options,
+    });
+  }
 }
 
-export class DemoNavigationControl extends AbstractControl<DemoNavigationControlOptions> {
-  public readonly kind = "navigation" as const;
+export interface DemoNavigationControlOptions extends NavigationControlOptions {}
 
+export class DemoNavigationControl extends AbstractNavigationControl<DemoNavigationControlOptions> {
   public constructor(
     id: string,
     options: DemoNavigationControlOptions = {},
   ) {
-    super(id, options);
+    super(id, {
+      showZoom: true,
+      showCompass: true,
+      ...options,
+    });
   }
+}
 
-  protected override getDefaultPosition(): ControlSlot {
-    return "top-right";
+export interface DemoFullscreenControlOptions extends FullscreenControlOptions {}
+
+export class DemoFullscreenControl extends AbstractFullscreenControl<DemoFullscreenControlOptions> {
+  public constructor(
+    id: string,
+    options: DemoFullscreenControlOptions = {},
+  ) {
+    super(id, {
+      active: false,
+      ...options,
+    });
   }
+}
 
-  public toControlDefinition(): ControlDefinition<DemoNavigationControlOptions> {
-    return {
-      id: this.id,
-      kind: this.kind,
-      position: this.position,
-      visible: this.options.visible,
-      options: this.options,
-      metadata: this.options.metadata,
-    };
+export interface DemoGeolocateControlOptions extends GeolocateControlOptions {}
+
+export class DemoGeolocateControl extends AbstractGeolocateControl<DemoGeolocateControlOptions> {
+  public constructor(
+    id: string,
+    options: DemoGeolocateControlOptions = {},
+  ) {
+    super(id, {
+      tracking: false,
+      showUserLocation: true,
+      showAccuracyCircle: true,
+      ...options,
+    });
   }
 }
 

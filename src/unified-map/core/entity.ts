@@ -103,10 +103,14 @@ export abstract class AbstractMapEntity<
       ...patch,
     };
 
-    this.fire("updated", {
-      ...this.snapshot(),
-      patch,
-    });
+    this.emitUpdated(patch);
+
+    return this;
+  }
+
+  protected touch(patch: Partial<TOptions> = {}): this {
+    this.ensureMutable();
+    this.emitUpdated(patch);
 
     return this;
   }
@@ -180,6 +184,13 @@ export abstract class AbstractMapEntity<
     if (this.stateValue === "disposed") {
       throw new Error(`Entity "${this.id}" has been disposed.`);
     }
+  }
+
+  private emitUpdated(patch: Partial<TOptions>): void {
+    this.fire("updated", {
+      ...this.snapshot(),
+      patch,
+    });
   }
 
   private assertLifecycleAccess(access: unknown): void {
