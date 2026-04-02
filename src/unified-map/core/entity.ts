@@ -22,6 +22,7 @@ import type { AbstractMap } from "./map";
 
 export abstract class AbstractMapEntity<
   TOptions extends object,
+  TNativeHandle = unknown,
   TExtraEvents extends EventMapBase = EmptyEventMap,
 > extends TypedEvented<EntityEventMap<TOptions, TExtraEvents>> {
   public readonly id: string;
@@ -29,7 +30,7 @@ export abstract class AbstractMapEntity<
   protected optionsValue: TOptions;
   protected stateValue: LifecycleState = "draft";
   protected mapRef?: AbstractMap;
-  protected nativeHandle?: unknown;
+  protected nativeHandle?: TNativeHandle;
 
   protected constructor(id: string, initialOptions: TOptions) {
     super();
@@ -68,8 +69,8 @@ export abstract class AbstractMapEntity<
     return getManagedMap(this);
   }
 
-  public getNativeHandle<THandle = unknown>(): THandle | undefined {
-    return this.nativeHandle as THandle | undefined;
+  public getNativeHandle(): TNativeHandle | undefined {
+    return this.nativeHandle;
   }
 
   public isMounted(): boolean {
@@ -117,7 +118,7 @@ export abstract class AbstractMapEntity<
 
   public attachToMap(
     map: AbstractMap,
-    nativeHandle: unknown,
+    nativeHandle: TNativeHandle,
     access: EntityLifecycleAccess,
   ): this {
     this.assertLifecycleAccess(access);

@@ -4,7 +4,12 @@ import type { SourceDefinition, SourceKind } from "./types";
 
 export abstract class AbstractSource<
   TOptions extends object = object,
-> extends AbstractMapEntity<TOptions, SourceExtraEventMap<TOptions>> {
+  TSourceHandle = unknown,
+> extends AbstractMapEntity<
+  TOptions,
+  TSourceHandle,
+  SourceExtraEventMap<TOptions>
+> {
   public abstract readonly kind: SourceKind;
 
   public abstract toSourceDefinition(): SourceDefinition<TOptions>;

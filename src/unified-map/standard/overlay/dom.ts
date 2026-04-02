@@ -1,3 +1,4 @@
+import type { EmptyEventMap } from "../../core/events";
 import { AbstractAnchoredOverlay } from "./anchored";
 import type {
   DomContentLike,
@@ -7,7 +8,13 @@ import type {
 
 export abstract class AbstractDomOverlay<
   TOptions extends DomOverlayOptions = DomOverlayOptions,
-> extends AbstractAnchoredOverlay<TOptions, DomOverlayDefinition> {
+  TOverlayHandle = unknown,
+> extends AbstractAnchoredOverlay<
+  TOptions,
+  DomOverlayDefinition,
+  EmptyEventMap,
+  TOverlayHandle
+> {
   public readonly kind = "dom" as const;
   public readonly meta = {
     renderLayer: "dom-overlay",

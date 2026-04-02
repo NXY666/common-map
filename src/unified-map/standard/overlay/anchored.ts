@@ -20,10 +20,12 @@ export abstract class AbstractAnchoredOverlay<
   TOptions extends AnchoredOverlayOptions,
   TDefinition extends StandardOverlayDefinition,
   TExtraEvents extends EventMapBase = EmptyEventMap,
+  TOverlayHandle = unknown,
 > extends AbstractStandardOverlay<
   TOptions,
   TDefinition,
-  AnchoredOverlayEventMap & Omit<TExtraEvents, keyof AnchoredOverlayEventMap>
+  AnchoredOverlayEventMap & Omit<TExtraEvents, keyof AnchoredOverlayEventMap>,
+  TOverlayHandle
 > {
   public get coordinate(): LngLatLike {
     return this.options.coordinate;

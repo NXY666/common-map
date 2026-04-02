@@ -7,14 +7,17 @@ import type {
   MarkerOverlayEventMap,
   MarkerOverlayOptions,
   MarkerVisual,
+  PopupOverlayOptions,
 } from "./types";
 
 export abstract class AbstractMarkerOverlay<
   TOptions extends MarkerOverlayOptions = MarkerOverlayOptions,
+  TOverlayHandle = unknown,
 > extends AbstractAnchoredOverlay<
   TOptions,
   MarkerOverlayDefinition,
-  MarkerOverlayEventMap
+  MarkerOverlayEventMap,
+  TOverlayHandle
 > {
   public readonly kind = "marker" as const;
   public readonly meta = {
@@ -24,13 +27,13 @@ export abstract class AbstractMarkerOverlay<
       "一个有唯一地理锚点的点对象，主要用于少量、高交互、可拖拽、可绑定 popup 的点标注。",
   } as const;
 
-  protected popupRef?: AbstractPopupOverlay;
+  protected popupRef?: AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle>;
 
   public get draggable(): boolean {
     return this.options.draggable ?? false;
   }
 
-  public get popup(): AbstractPopupOverlay | undefined {
+  public get popup(): AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle> | undefined {
     return this.popupRef;
   }
 
@@ -71,7 +74,7 @@ export abstract class AbstractMarkerOverlay<
     return this;
   }
 
-  public bindPopup(popup: AbstractPopupOverlay | null): this {
+  public bindPopup(popup: AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle> | null): this {
     const nextPopup = popup ?? undefined;
     const currentPopup = this.popupRef;
 

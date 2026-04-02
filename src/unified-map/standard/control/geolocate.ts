@@ -8,10 +8,12 @@ import type {
 
 export abstract class AbstractGeolocateControl<
   TOptions extends GeolocateControlOptions = GeolocateControlOptions,
+  TControlHandle = unknown,
 > extends AbstractStandardControl<
   TOptions,
   GeolocateControlDefinition,
-  GeolocateControlEventMap
+  GeolocateControlEventMap,
+  TControlHandle
 > {
   public readonly kind = "geolocate" as const;
   public readonly meta = {

@@ -36,7 +36,12 @@ export interface SystemLayerOptions<
 export abstract class AbstractLayer<
   TOptions extends BaseLayerOptions = BaseLayerOptions,
   TDefinition extends LayerDefinition = LayerDefinition,
-> extends AbstractMapEntity<TOptions, LayerExtraEventMap<TOptions>> {
+  TLayerHandle = unknown,
+> extends AbstractMapEntity<
+  TOptions,
+  TLayerHandle,
+  LayerExtraEventMap<TOptions>
+> {
   public abstract readonly kind: LayerKind;
   public abstract readonly domain: LayerDomain;
 
@@ -76,7 +81,12 @@ export abstract class AbstractLayer<
 export abstract class AbstractDataLayer<
   TPaint extends object = object,
   TOptions extends DataLayerOptions<TPaint> = DataLayerOptions<TPaint>,
-> extends AbstractLayer<TOptions, DataLayerDefinition<TPaint>> {
+  TLayerHandle = unknown,
+> extends AbstractLayer<
+  TOptions,
+  DataLayerDefinition<TPaint>,
+  TLayerHandle
+> {
   public abstract override readonly kind: DataLayerKind;
   public readonly domain = "data" as const;
 
@@ -87,9 +97,11 @@ export abstract class AbstractDataLayer<
 
 export abstract class AbstractSystemLayer<
   TOptions extends SystemLayerOptions = SystemLayerOptions,
+  TLayerHandle = unknown,
 > extends AbstractLayer<
   TOptions,
-  SystemLayerDefinition<TOptions, TOptions["systemKind"]>
+  SystemLayerDefinition<TOptions, TOptions["systemKind"]>,
+  TLayerHandle
 > {
   public readonly kind = "system" as const;
   public readonly domain = "system" as const;

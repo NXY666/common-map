@@ -1,10 +1,17 @@
+import type { EmptyEventMap } from "../../core/events";
 import type { ControlSlot, LengthUnit } from "../../core/types";
 import { AbstractStandardControl } from "./base";
 import type { ScaleControlDefinition, ScaleControlOptions } from "./types";
 
 export abstract class AbstractScaleControl<
   TOptions extends ScaleControlOptions = ScaleControlOptions,
-> extends AbstractStandardControl<TOptions, ScaleControlDefinition> {
+  TControlHandle = unknown,
+> extends AbstractStandardControl<
+  TOptions,
+  ScaleControlDefinition,
+  EmptyEventMap,
+  TControlHandle
+> {
   public readonly kind = "scale" as const;
   public readonly meta = {
     renderLayer: "control-dom",

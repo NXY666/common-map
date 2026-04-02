@@ -22,8 +22,10 @@ export interface ControlOptions {
 export abstract class AbstractControl<
   TOptions extends ControlOptions = ControlOptions,
   TExtraEvents extends EventMapBase = EmptyEventMap,
+  TControlHandle = unknown,
 > extends AbstractMapEntity<
   TOptions,
+  TControlHandle,
   ControlExtraEventMap<TOptions> & TExtraEvents
 > {
   public abstract readonly kind: ControlKind;

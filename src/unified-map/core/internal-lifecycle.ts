@@ -6,13 +6,13 @@ export interface EntityLifecycleAccess {
   readonly [entityLifecycleBrand]: true;
 }
 
-interface LifecycleManagedEntity {
+interface LifecycleManagedEntity<TNativeHandle = unknown> {
   readonly id: string;
   isDisposed(): boolean;
   isMounted(): boolean;
   attachToMap(
     map: AbstractMap,
-    nativeHandle: unknown,
+    nativeHandle: TNativeHandle,
     access: EntityLifecycleAccess,
   ): unknown;
   detachFromMap(access: EntityLifecycleAccess): unknown;
@@ -75,10 +75,10 @@ export function releaseManagedEntity(
   managedEntities.delete(entity);
 }
 
-export function mountManagedEntity(
-  entity: LifecycleManagedEntity,
+export function mountManagedEntity<TNativeHandle>(
+  entity: LifecycleManagedEntity<TNativeHandle>,
   map: AbstractMap,
-  nativeHandle: unknown,
+  nativeHandle: TNativeHandle,
 ): void {
   entity.attachToMap(map, nativeHandle, lifecycleAccess);
 }

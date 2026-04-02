@@ -1,3 +1,4 @@
+import type { EmptyEventMap } from "../../core/events";
 import { AbstractPathOverlay } from "./path";
 import type {
   PolylineOverlayDefinition,
@@ -7,7 +8,13 @@ import type {
 
 export abstract class AbstractPolylineOverlay<
   TOptions extends PolylineOverlayOptions = PolylineOverlayOptions,
-> extends AbstractPathOverlay<TOptions, PolylineOverlayDefinition> {
+  TOverlayHandle = unknown,
+> extends AbstractPathOverlay<
+  TOptions,
+  PolylineOverlayDefinition,
+  EmptyEventMap,
+  TOverlayHandle
+> {
   public readonly kind = "polyline" as const;
   public readonly meta = {
     renderLayer: "vector-overlay",

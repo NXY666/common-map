@@ -27,9 +27,11 @@ export abstract class AbstractStandardControl<
   TOptions extends StandardControlOptions,
   TDefinition extends StandardControlDefinition,
   TExtraEvents extends EventMapBase = EmptyEventMap,
+  TControlHandle = unknown,
 > extends AbstractControl<
   TOptions,
-  Omit<TExtraEvents, keyof StandardControlReservedEventMap>
+  Omit<TExtraEvents, keyof StandardControlReservedEventMap>,
+  TControlHandle
 > {
   public abstract readonly kind: TDefinition["kind"];
   public abstract readonly meta: StandardObjectMeta;

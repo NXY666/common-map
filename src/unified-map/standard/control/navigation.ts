@@ -1,3 +1,4 @@
+import type { EmptyEventMap } from "../../core/events";
 import { AbstractStandardControl } from "./base";
 import type {
   NavigationControlDefinition,
@@ -6,7 +7,13 @@ import type {
 
 export abstract class AbstractNavigationControl<
   TOptions extends NavigationControlOptions = NavigationControlOptions,
-> extends AbstractStandardControl<TOptions, NavigationControlDefinition> {
+  TControlHandle = unknown,
+> extends AbstractStandardControl<
+  TOptions,
+  NavigationControlDefinition,
+  EmptyEventMap,
+  TControlHandle
+> {
   public readonly kind = "navigation" as const;
   public readonly meta = {
     renderLayer: "control-dom",

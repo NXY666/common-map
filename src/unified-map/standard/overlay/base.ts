@@ -20,9 +20,11 @@ export abstract class AbstractStandardOverlay<
   TOptions extends StandardOverlayOptions,
   TDefinition extends StandardOverlayDefinition,
   TExtraEvents extends EventMapBase = EmptyEventMap,
+  TOverlayHandle = unknown,
 > extends AbstractOverlay<
   TOptions,
-  Omit<TExtraEvents, keyof StandardOverlayReservedEventMap>
+  Omit<TExtraEvents, keyof StandardOverlayReservedEventMap>,
+  TOverlayHandle
 > {
   public abstract readonly kind: TDefinition["kind"];
   public abstract readonly meta: StandardObjectMeta;

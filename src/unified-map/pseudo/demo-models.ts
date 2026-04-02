@@ -27,6 +27,7 @@ import type {
   UnifiedMapOptions,
 } from "../core/types";
 import type { AbstractMapAdapter } from "../core/adapter";
+import type { PseudoHandles } from "./pseudo-adapters";
 
 type DemoGeometry =
   | {
@@ -55,7 +56,10 @@ export interface DemoGeoJsonSourceOptions {
   tolerance?: number;
 }
 
-export class DemoGeoJsonSource extends AbstractSource<DemoGeoJsonSourceOptions> {
+export class DemoGeoJsonSource extends AbstractSource<
+  DemoGeoJsonSourceOptions,
+  PseudoHandles["source"]
+> {
   public readonly kind = "geojson" as const;
 
   public constructor(id: string, options: DemoGeoJsonSourceOptions) {
@@ -93,7 +97,8 @@ export interface DemoLineLayerOptions extends DataLayerOptions<DemoLinePaint> {
 
 export class DemoLineLayer extends AbstractDataLayer<
   DemoLinePaint,
-  DemoLineLayerOptions
+  DemoLineLayerOptions,
+  PseudoHandles["layer"]
 > {
   public readonly kind = "line" as const;
 
@@ -131,7 +136,10 @@ export interface DemoMarkerOverlayOptions extends MarkerOverlayOptions {
   label?: string;
 }
 
-export class DemoMarkerOverlay extends AbstractMarkerOverlay<DemoMarkerOverlayOptions> {
+export class DemoMarkerOverlay extends AbstractMarkerOverlay<
+  DemoMarkerOverlayOptions,
+  PseudoHandles["overlay"]
+> {
   public constructor(id: string, options: DemoMarkerOverlayOptions) {
     super(id, {
       draggable: false,
@@ -146,7 +154,10 @@ export class DemoMarkerOverlay extends AbstractMarkerOverlay<DemoMarkerOverlayOp
 
 export interface DemoPopupOverlayOptions extends PopupOverlayOptions {}
 
-export class DemoPopupOverlay extends AbstractPopupOverlay<DemoPopupOverlayOptions> {
+export class DemoPopupOverlay extends AbstractPopupOverlay<
+  DemoPopupOverlayOptions,
+  PseudoHandles["overlay"]
+> {
   public constructor(id: string, options: DemoPopupOverlayOptions) {
     super(id, {
       closeButton: true,
@@ -158,7 +169,10 @@ export class DemoPopupOverlay extends AbstractPopupOverlay<DemoPopupOverlayOptio
 
 export interface DemoNavigationControlOptions extends NavigationControlOptions {}
 
-export class DemoNavigationControl extends AbstractNavigationControl<DemoNavigationControlOptions> {
+export class DemoNavigationControl extends AbstractNavigationControl<
+  DemoNavigationControlOptions,
+  PseudoHandles["control"]
+> {
   public constructor(
     id: string,
     options: DemoNavigationControlOptions = {},
@@ -173,7 +187,10 @@ export class DemoNavigationControl extends AbstractNavigationControl<DemoNavigat
 
 export interface DemoFullscreenControlOptions extends FullscreenControlOptions {}
 
-export class DemoFullscreenControl extends AbstractFullscreenControl<DemoFullscreenControlOptions> {
+export class DemoFullscreenControl extends AbstractFullscreenControl<
+  DemoFullscreenControlOptions,
+  PseudoHandles["control"]
+> {
   public constructor(
     id: string,
     options: DemoFullscreenControlOptions = {},
@@ -187,7 +204,10 @@ export class DemoFullscreenControl extends AbstractFullscreenControl<DemoFullscr
 
 export interface DemoGeolocateControlOptions extends GeolocateControlOptions {}
 
-export class DemoGeolocateControl extends AbstractGeolocateControl<DemoGeolocateControlOptions> {
+export class DemoGeolocateControl extends AbstractGeolocateControl<
+  DemoGeolocateControlOptions,
+  PseudoHandles["control"]
+> {
   public constructor(
     id: string,
     options: DemoGeolocateControlOptions = {},
@@ -201,8 +221,11 @@ export class DemoGeolocateControl extends AbstractGeolocateControl<DemoGeolocate
   }
 }
 
-export class DemoMap extends AbstractMap {
-  public constructor(options: UnifiedMapOptions, adapter: AbstractMapAdapter) {
+export class DemoMap extends AbstractMap<PseudoHandles> {
+  public constructor(
+    options: UnifiedMapOptions,
+    adapter: AbstractMapAdapter<PseudoHandles>,
+  ) {
     super(adapter, options);
   }
 }

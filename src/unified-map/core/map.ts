@@ -1,13 +1,14 @@
-import {type EventKey, type EventPayload, type MapEventMap, type Subscription, TypedEvented,} from "./events";
+import {type EventKey, type EventMapBase, type EventPayload, type MapEventMap, type Subscription, TypedEvented,} from "./events";
 import {getControlRequiredCapabilities, getOverlayRequiredCapabilities, type MapCapability,} from "./capability";
-import type {AbstractMapAdapter} from "./adapter";
-import type {AbstractControl} from "./control";
-import type {AbstractLayer} from "./layer";
-import type {AbstractOverlay} from "./overlay";
+import type {AdapterHandles, AbstractMapAdapter} from "./adapter";
+import type {AbstractControl, ControlOptions} from "./control";
+import type {AbstractLayer, BaseLayerOptions} from "./layer";
+import type {AbstractOverlay, OverlayOptions} from "./overlay";
 import type {AbstractSource} from "./source";
 import type {
   CameraState,
   CameraTransition,
+  LayerDefinition,
   LngLatLike,
   LngLatLiteral,
   MapLifecycleState,
@@ -42,22 +43,41 @@ function createDefaultView(): CameraState {
   };
 }
 
-export abstract class AbstractMap extends TypedEvented<MapEventMap> {
+type MapSourceEntity<TSourceHandle> = AbstractSource<object, TSourceHandle>;
+type MapLayerEntity<TLayerHandle> = AbstractLayer<
+  BaseLayerOptions,
+  LayerDefinition,
+  TLayerHandle
+>;
+type MapOverlayEntity<TOverlayHandle> = AbstractOverlay<
+  OverlayOptions,
+  EventMapBase,
+  TOverlayHandle
+>;
+type MapControlEntity<TControlHandle> = AbstractControl<
+  ControlOptions,
+  EventMapBase,
+  TControlHandle
+>;
+
+export abstract class AbstractMap<
+  H extends AdapterHandles = AdapterHandles,
+> extends TypedEvented<MapEventMap> {
   public readonly id: string;
 
-  public readonly adapter: AbstractMapAdapter;
+  public readonly adapter: AbstractMapAdapter<H>;
 
   protected readonly options: UnifiedMapOptions;
 
-  protected nativeMap?: unknown;
+  protected nativeMap?: H["map"];
 
-  protected readonly sources = new Map<string, AbstractSource>();
+  protected readonly sources = new Map<string, MapSourceEntity<H["source"]>>();
 
-  protected readonly layers = new Map<string, AbstractLayer>();
+  protected readonly layers = new Map<string, MapLayerEntity<H["layer"]>>();
 
-  protected readonly overlays = new Map<string, AbstractOverlay>();
+  protected readonly overlays = new Map<string, MapOverlayEntity<H["overlay"]>>();
 
-  protected readonly controls = new Map<string, AbstractControl>();
+  protected readonly controls = new Map<string, MapControlEntity<H["control"]>>();
 
   private runtimeOptions: UnifiedMapRuntimeOptions;
 
@@ -70,7 +90,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   private readonly subscriptions = new Map<string, Subscription>();
 
   protected constructor(
-    adapter: AbstractMapAdapter,
+    adapter: AbstractMapAdapter<H>,
     options: UnifiedMapOptions,
   ) {
     super();
@@ -143,7 +163,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
       return this;
     }
 
-    let nativeMap: unknown | undefined;
+    let nativeMap: H["map"] | undefined;
     try {
       nativeMap = this.adapter.createMap(
         {container: target},
@@ -392,7 +412,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return this.adapter.unproject(this.nativeMap, point);
   }
 
-  public addSource<TSource extends AbstractSource>(source: TSource): TSource {
+  public addSource<TSource extends MapSourceEntity<H["source"]>>(source: TSource): TSource {
     if (this.isDestroyed) {
       console.warn(`Map has been destroyed and cannot addSource.`);
       return source;
@@ -410,7 +430,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return source;
   }
 
-  public getSource<TSource extends AbstractSource>(
+  public getSource<TSource extends MapSourceEntity<H["source"]>>(
     sourceId: string,
   ): TSource | undefined {
     return this.sources.get(sourceId) as TSource | undefined;
@@ -456,7 +476,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return this;
   }
 
-  public addLayer<TLayer extends AbstractLayer>(layer: TLayer): TLayer {
+  public addLayer<TLayer extends MapLayerEntity<H["layer"]>>(layer: TLayer): TLayer {
     if (this.isDestroyed) {
       console.warn(`Map has been destroyed and cannot addLayer.`);
       return layer;
@@ -480,7 +500,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return layer;
   }
 
-  public getLayer<TLayer extends AbstractLayer>(
+  public getLayer<TLayer extends MapLayerEntity<H["layer"]>>(
     layerId: string,
   ): TLayer | undefined {
     return this.layers.get(layerId) as TLayer | undefined;
@@ -507,7 +527,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return this;
   }
 
-  public addOverlay<TOverlay extends AbstractOverlay>(overlay: TOverlay): TOverlay {
+  public addOverlay<TOverlay extends MapOverlayEntity<H["overlay"]>>(overlay: TOverlay): TOverlay {
     if (this.isDestroyed) {
       console.warn(`Map has been destroyed and cannot addOverlay.`);
       return overlay;
@@ -529,7 +549,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return overlay;
   }
 
-  public getOverlay<TOverlay extends AbstractOverlay>(
+  public getOverlay<TOverlay extends MapOverlayEntity<H["overlay"]>>(
     overlayId: string,
   ): TOverlay | undefined {
     return this.overlays.get(overlayId) as TOverlay | undefined;
@@ -556,7 +576,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return this;
   }
 
-  public addControl<TControl extends AbstractControl>(control: TControl): TControl {
+  public addControl<TControl extends MapControlEntity<H["control"]>>(control: TControl): TControl {
     if (this.isDestroyed) {
       console.warn(`Map has been destroyed and cannot addControl.`);
       return control;
@@ -578,7 +598,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return control;
   }
 
-  public getControl<TControl extends AbstractControl>(
+  public getControl<TControl extends MapControlEntity<H["control"]>>(
     controlId: string,
   ): TControl | undefined {
     return this.controls.get(controlId) as TControl | undefined;
@@ -605,7 +625,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return this;
   }
 
-  private bindSource(source: AbstractSource): void {
+  private bindSource(source: MapSourceEntity<H["source"]>): void {
     this.unbindEntity(source.id);
 
     let refreshQueued = false;
@@ -639,7 +659,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     );
   }
 
-  private bindLayer(layer: AbstractLayer): void {
+  private bindLayer(layer: MapLayerEntity<H["layer"]>): void {
     this.unbindEntity(layer.id);
     this.subscriptions.set(
       layer.id,
@@ -657,7 +677,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     );
   }
 
-  private bindOverlay(overlay: AbstractOverlay): void {
+  private bindOverlay(overlay: MapOverlayEntity<H["overlay"]>): void {
     this.unbindEntity(overlay.id);
     this.subscriptions.set(
       overlay.id,
@@ -677,7 +697,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     );
   }
 
-  private bindControl(control: AbstractControl): void {
+  private bindControl(control: MapControlEntity<H["control"]>): void {
     this.unbindEntity(control.id);
     this.subscriptions.set(
       control.id,
@@ -702,7 +722,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     this.subscriptions.delete(entityId);
   }
 
-  private materializeSource(source: AbstractSource): void {
+  private materializeSource(source: MapSourceEntity<H["source"]>): void {
     if (!this.nativeMap || source.isMounted()) {
       return;
     }
@@ -712,7 +732,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   private dematerializeSource(
-    source: AbstractSource,
+    source: MapSourceEntity<H["source"]>,
     operation?: "unmount" | "destroy",
   ): void {
     if (!this.nativeMap || !source.isMounted()) {
@@ -742,7 +762,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     }
   }
 
-  private materializeLayer(layer: AbstractLayer): void {
+  private materializeLayer(layer: MapLayerEntity<H["layer"]>): void {
     if (!this.nativeMap || layer.isMounted()) {
       return;
     }
@@ -752,7 +772,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   private dematerializeLayer(
-    layer: AbstractLayer,
+    layer: MapLayerEntity<H["layer"]>,
     operation?: "unmount" | "destroy",
   ): void {
     if (!this.nativeMap || !layer.isMounted()) {
@@ -782,7 +802,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     }
   }
 
-  private materializeOverlay(overlay: AbstractOverlay): void {
+  private materializeOverlay(overlay: MapOverlayEntity<H["overlay"]>): void {
     if (!this.nativeMap || overlay.isMounted()) {
       return;
     }
@@ -794,7 +814,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   private dematerializeOverlay(
-    overlay: AbstractOverlay,
+    overlay: MapOverlayEntity<H["overlay"]>,
     operation?: "unmount" | "destroy",
   ): void {
     if (!this.nativeMap || !overlay.isMounted()) {
@@ -832,7 +852,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     }
   }
 
-  private materializeControl(control: AbstractControl): void {
+  private materializeControl(control: MapControlEntity<H["control"]>): void {
     if (!this.nativeMap || control.isMounted()) {
       return;
     }
@@ -844,7 +864,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   private dematerializeControl(
-    control: AbstractControl,
+    control: MapControlEntity<H["control"]>,
     operation?: "unmount" | "destroy",
   ): void {
     if (!this.nativeMap || !control.isMounted()) {
@@ -883,7 +903,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   private destroyNativeMap(
-    nativeMap: unknown,
+    nativeMap: H["map"],
     operation: "unmount" | "destroy",
   ): void {
     try {
@@ -907,7 +927,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     }
   }
 
-  private assertOverlayCapabilities(overlay: AbstractOverlay): void {
+  private assertOverlayCapabilities(overlay: MapOverlayEntity<H["overlay"]>): void {
     const definition = overlay.toOverlayDefinition();
 
     for (const capability of getOverlayRequiredCapabilities(definition)) {
@@ -915,7 +935,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     }
   }
 
-  private assertControlCapabilities(control: AbstractControl): void {
+  private assertControlCapabilities(control: MapControlEntity<H["control"]>): void {
     const definition = control.toControlDefinition();
 
     for (const capability of getControlRequiredCapabilities(definition)) {

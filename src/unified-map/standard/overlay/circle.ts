@@ -8,10 +8,12 @@ import type {
 
 export abstract class AbstractCircleOverlay<
   TOptions extends CircleOverlayOptions = CircleOverlayOptions,
+  TOverlayHandle = unknown,
 > extends AbstractAnchoredOverlay<
   TOptions,
   CircleOverlayDefinition,
-  CircleOverlayEventMap
+  CircleOverlayEventMap,
+  TOverlayHandle
 > {
   public readonly kind = "circle" as const;
   public readonly meta = {

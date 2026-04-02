@@ -16,7 +16,17 @@ import type {
   UnifiedMapRuntimeOptions,
 } from "./types";
 
-export abstract class AbstractMapAdapter extends TypedEvented<AdapterEventMap> {
+export interface AdapterHandles {
+  map: unknown;
+  source: unknown;
+  layer: unknown;
+  overlay: unknown;
+  control: unknown;
+}
+
+export abstract class AbstractMapAdapter<
+  H extends AdapterHandles = AdapterHandles,
+> extends TypedEvented<AdapterEventMap> {
   protected readonly operationLog: string[] = [];
 
   protected constructor(public readonly capabilities: AbstractCapabilityProfile) {
@@ -41,103 +51,103 @@ export abstract class AbstractMapAdapter extends TypedEvented<AdapterEventMap> {
     target: MapMountTarget,
     options: Readonly<UnifiedMapOptions>,
     eventBridge: MapEventBridge,
-  ): unknown;
+  ): H["map"];
 
-  public abstract destroyMap(mapHandle: unknown): void;
+  public abstract destroyMap(mapHandle: H["map"]): void;
 
   // setView() only requests a camera change.
   // Adapters must emit viewChanged through the bridge after the native map
   // observes the actual camera state change.
   public abstract setView(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     view: CameraState,
     transition?: CameraTransition,
   ): void;
 
-  public abstract getView(mapHandle: unknown): CameraState;
+  public abstract getView(mapHandle: H["map"]): CameraState;
 
   public abstract updateMapOptions(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     nextOptions: Readonly<UnifiedMapRuntimeOptions>,
     previousOptions: Readonly<UnifiedMapRuntimeOptions>,
   ): void;
 
   public abstract project(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     lngLat: LngLatLike,
   ): ScreenPoint;
 
   public abstract unproject(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     point: ScreenPoint,
   ): LngLatLiteral;
 
   public abstract mountSource(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     source: AbstractSource,
-  ): unknown;
+  ): H["source"];
 
   public abstract updateSource(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     source: AbstractSource,
-    sourceHandle: unknown,
+    sourceHandle: H["source"],
   ): void;
 
   public abstract unmountSource(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     source: AbstractSource,
-    sourceHandle: unknown,
+    sourceHandle: H["source"],
   ): void;
 
   public abstract mountLayer(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     layer: AbstractLayer,
-  ): unknown;
+  ): H["layer"];
 
   public abstract updateLayer(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     layer: AbstractLayer,
-    layerHandle: unknown,
+    layerHandle: H["layer"],
   ): void;
 
   public abstract unmountLayer(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     layer: AbstractLayer,
-    layerHandle: unknown,
+    layerHandle: H["layer"],
   ): void;
 
   public abstract mountOverlay(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     overlay: AbstractOverlay,
-  ): unknown;
+  ): H["overlay"];
 
   public abstract updateOverlay(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     overlay: AbstractOverlay,
-    overlayHandle: unknown,
+    overlayHandle: H["overlay"],
   ): void;
 
   public abstract unmountOverlay(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     overlay: AbstractOverlay,
-    overlayHandle: unknown,
+    overlayHandle: H["overlay"],
   ): void;
 
   public abstract mountControl(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     control: AbstractControl,
-  ): unknown;
+  ): H["control"];
 
   public abstract updateControl(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     control: AbstractControl,
-    controlHandle: unknown,
+    controlHandle: H["control"],
   ): void;
 
   public abstract unmountControl(
-    mapHandle: unknown,
+    mapHandle: H["map"],
     control: AbstractControl,
-    controlHandle: unknown,
+    controlHandle: H["control"],
   ): void;
 
   protected record(entry: string): void {

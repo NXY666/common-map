@@ -40,6 +40,36 @@ interface PseudoNativeMap {
   eventBridge: MapEventBridge;
 }
 
+interface PseudoSourceHandle {
+  type: "source" | "logical-source";
+  id: string;
+}
+
+interface PseudoLayerHandle {
+  type: "layer" | "system-layer" | "overlay-group";
+  id: string;
+}
+
+interface PseudoOverlayHandle {
+  type: "overlay";
+  id: string;
+  kind: string;
+}
+
+interface PseudoControlHandle {
+  type: "control";
+  id: string;
+  kind: string;
+}
+
+export interface PseudoHandles {
+  map: PseudoNativeMap;
+  source: PseudoSourceHandle;
+  layer: PseudoLayerHandle;
+  overlay: PseudoOverlayHandle;
+  control: PseudoControlHandle;
+}
+
 type CapabilityConfig = {
   level: "none" | "emulated" | "native";
   summary: string;
@@ -284,7 +314,7 @@ function describeControlDefinition(definition: ControlDefinition): string {
   }
 }
 
-abstract class BasePseudoAdapter extends AbstractMapAdapter {
+abstract class BasePseudoAdapter extends AbstractMapAdapter<PseudoHandles> {
   public abstract override readonly engine: string;
   private readonly popupOpenStates = new Map<string, boolean>();
   private readonly fullscreenActiveStates = new Map<string, boolean>();
@@ -331,42 +361,39 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter {
     return this.createRuntime(target, options, eventBridge);
   }
 
-  public override destroyMap(mapHandle: unknown): void {
-    const runtime = mapHandle as PseudoNativeMap;
-    this.record(`[${this.engine}] destroyMap(container=${runtime.container})`);
+  public override destroyMap(mapHandle: PseudoNativeMap): void {
+    this.record(`[${this.engine}] destroyMap(container=${mapHandle.container})`);
   }
 
   public override setView(
-    mapHandle: unknown,
+    mapHandle: PseudoNativeMap,
     view: CameraState,
     transition?: CameraTransition,
   ): void {
-    const runtime = mapHandle as PseudoNativeMap;
-    runtime.view = view;
+    mapHandle.view = view;
     this.record(
       `[${this.engine}] setView(${formatView(view)}, animate=${transition?.animate ?? false})`,
     );
 
-    runtime.eventBridge.emit("viewChanged", {
-      mapId: runtime.mapId,
-      view: runtime.view,
+    mapHandle.eventBridge.emit("viewChanged", {
+      mapId: mapHandle.mapId,
+      view: mapHandle.view,
       reason: "api",
       inputType: "unknown",
     });
   }
 
-  public override getView(mapHandle: unknown): CameraState {
-    return (mapHandle as PseudoNativeMap).view;
+  public override getView(mapHandle: PseudoNativeMap): CameraState {
+    return mapHandle.view;
   }
 
   public override updateMapOptions(
-    mapHandle: unknown,
+    mapHandle: PseudoNativeMap,
     nextOptions: Readonly<UnifiedMapRuntimeOptions>,
     _previousOptions: Readonly<UnifiedMapRuntimeOptions>,
   ): void {
-    const runtime = mapHandle as PseudoNativeMap;
-    runtime.style = nextOptions.style;
-    runtime.interactive = nextOptions.interactive;
+    mapHandle.style = nextOptions.style;
+    mapHandle.interactive = nextOptions.interactive;
 
     this.record(
       `[${this.engine}] updateMapOptions(interactive=${nextOptions.interactive ?? true}, style=${String(
@@ -375,7 +402,7 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter {
     );
   }
 
-  public override project(_mapHandle: unknown, lngLat: LngLatLike): ScreenPoint {
+  public override project(_mapHandle: PseudoNativeMap, lngLat: LngLatLike): ScreenPoint {
     const point = toLngLatLiteral(lngLat);
     return {
       x: point.lng * 10,
@@ -383,7 +410,7 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter {
     };
   }
 
-  public override unproject(_mapHandle: unknown, point: ScreenPoint): LngLatLiteral {
+  public override unproject(_mapHandle: PseudoNativeMap, point: ScreenPoint): LngLatLiteral {
     return {
       lng: point.x / 10,
       lat: point.y / -10,
@@ -417,7 +444,7 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter {
   }
 
   protected syncControlRuntimeState(
-    mapHandle: unknown,
+    mapHandle: PseudoNativeMap,
     control: AbstractControl,
   ): void {
     if (control instanceof AbstractFullscreenControl) {
@@ -482,7 +509,7 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter {
   }
 
   private syncGeolocateRuntimeState(
-    mapHandle: unknown,
+    mapHandle: PseudoNativeMap,
     control: AbstractGeolocateControl,
   ): void {
     const currentState = {
@@ -515,10 +542,9 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter {
       return;
     }
 
-    const runtime = mapHandle as PseudoNativeMap;
     emitControlEvent(control, "geolocate", {
       id: control.id,
-      coordinate: toLngLatLiteral(runtime.view.center),
+      coordinate: toLngLatLiteral(mapHandle.view.center),
       accuracyMeters: 15,
     });
 
@@ -534,9 +560,9 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
   }
 
   public override mountSource(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     source: AbstractSource,
-  ): unknown {
+  ): PseudoHandles["source"] {
     this.record(
       `[maplibre] map.addSource("${source.id}", ${shortJson(
         source.toSourceDefinition().mapLibreSource ?? source.toSourceDefinition(),
@@ -546,22 +572,25 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
   }
 
   public override updateSource(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     source: AbstractSource,
-    _sourceHandle: unknown,
+    _sourceHandle: PseudoHandles["source"],
   ): void {
     this.record(`[maplibre] syncSource("${source.id}")`);
   }
 
   public override unmountSource(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     source: AbstractSource,
-    _sourceHandle: unknown,
+    _sourceHandle: PseudoHandles["source"],
   ): void {
     this.record(`[maplibre] map.removeSource("${source.id}")`);
   }
 
-  public override mountLayer(_mapHandle: unknown, layer: AbstractLayer): unknown {
+  public override mountLayer(
+    _mapHandle: PseudoNativeMap,
+    layer: AbstractLayer,
+  ): PseudoHandles["layer"] {
     const definition = layer.toLayerDefinition();
     this.record(
       `[maplibre] map.addLayer(${shortJson(
@@ -574,25 +603,25 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
   }
 
   public override updateLayer(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     layer: AbstractLayer,
-    _layerHandle: unknown,
+    _layerHandle: PseudoHandles["layer"],
   ): void {
     this.record(`[maplibre] syncLayer("${layer.id}")`);
   }
 
   public override unmountLayer(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     layer: AbstractLayer,
-    _layerHandle: unknown,
+    _layerHandle: PseudoHandles["layer"],
   ): void {
     this.record(`[maplibre] map.removeLayer("${layer.id}")`);
   }
 
   public override mountOverlay(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     overlay: AbstractOverlay,
-  ): unknown {
+  ): PseudoHandles["overlay"] {
     const definition = overlay.toOverlayDefinition();
     this.record(
       `[maplibre] mountOverlay("${overlay.id}", ${describeOverlayDefinition(definition, "maplibre")})`,
@@ -602,9 +631,9 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
   }
 
   public override updateOverlay(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     overlay: AbstractOverlay,
-    _overlayHandle: unknown,
+    _overlayHandle: PseudoHandles["overlay"],
   ): void {
     const definition = overlay.toOverlayDefinition();
     this.record(
@@ -614,18 +643,18 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
   }
 
   public override unmountOverlay(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     overlay: AbstractOverlay,
-    _overlayHandle: unknown,
+    _overlayHandle: PseudoHandles["overlay"],
   ): void {
     this.record(`[maplibre] unmountOverlay("${overlay.id}")`);
     this.clearOverlayRuntimeState(overlay.id);
   }
 
   public override mountControl(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     control: AbstractControl,
-  ): unknown {
+  ): PseudoHandles["control"] {
     const definition = control.toControlDefinition();
     this.record(
       `[maplibre] map.addControl("${control.id}", ${describeControlDefinition(definition)})`,
@@ -635,9 +664,9 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
   }
 
   public override updateControl(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     control: AbstractControl,
-    _controlHandle: unknown,
+    _controlHandle: PseudoHandles["control"],
   ): void {
     const definition = control.toControlDefinition();
     this.record(
@@ -647,9 +676,9 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
   }
 
   public override unmountControl(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     control: AbstractControl,
-    _controlHandle: unknown,
+    _controlHandle: PseudoHandles["control"],
   ): void {
     this.record(`[maplibre] map.removeControl("${control.id}")`);
     this.clearControlRuntimeState(control.id);
@@ -812,9 +841,9 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override mountSource(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     source: AbstractSource,
-  ): unknown {
+  ): PseudoHandles["source"] {
     this.record(
       `[bmapgl] registerLogicalSource("${source.id}") // BMapGL has no first-class source API`,
     );
@@ -822,22 +851,25 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override updateSource(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     source: AbstractSource,
-    _sourceHandle: unknown,
+    _sourceHandle: PseudoHandles["source"],
   ): void {
     this.record(`[bmapgl] refreshLogicalSource("${source.id}")`);
   }
 
   public override unmountSource(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     source: AbstractSource,
-    _sourceHandle: unknown,
+    _sourceHandle: PseudoHandles["source"],
   ): void {
     this.record(`[bmapgl] disposeLogicalSource("${source.id}")`);
   }
 
-  public override mountLayer(_mapHandle: unknown, layer: AbstractLayer): unknown {
+  public override mountLayer(
+    _mapHandle: PseudoNativeMap,
+    layer: AbstractLayer,
+  ): PseudoHandles["layer"] {
     const definition = layer.toLayerDefinition();
 
     if (definition.domain === "system") {
@@ -854,9 +886,9 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override updateLayer(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     layer: AbstractLayer,
-    _layerHandle: unknown,
+    _layerHandle: PseudoHandles["layer"],
   ): void {
     const definition = layer.toLayerDefinition();
     this.record(
@@ -867,9 +899,9 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override unmountLayer(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     layer: AbstractLayer,
-    _layerHandle: unknown,
+    _layerHandle: PseudoHandles["layer"],
   ): void {
     const definition = layer.toLayerDefinition();
     this.record(
@@ -880,9 +912,9 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override mountOverlay(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     overlay: AbstractOverlay,
-  ): unknown {
+  ): PseudoHandles["overlay"] {
     const definition = overlay.toOverlayDefinition();
     this.record(
       `[bmapgl] map.addOverlay("${overlay.id}", ${describeOverlayDefinition(definition, "bmapgl")})`,
@@ -892,9 +924,9 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override updateOverlay(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     overlay: AbstractOverlay,
-    _overlayHandle: unknown,
+    _overlayHandle: PseudoHandles["overlay"],
   ): void {
     const definition = overlay.toOverlayDefinition();
     this.record(
@@ -904,18 +936,18 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override unmountOverlay(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     overlay: AbstractOverlay,
-    _overlayHandle: unknown,
+    _overlayHandle: PseudoHandles["overlay"],
   ): void {
     this.record(`[bmapgl] map.removeOverlay("${overlay.id}")`);
     this.clearOverlayRuntimeState(overlay.id);
   }
 
   public override mountControl(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     control: AbstractControl,
-  ): unknown {
+  ): PseudoHandles["control"] {
     const definition = control.toControlDefinition();
     this.record(
       `[bmapgl] map.addControl("${control.id}", ${describeControlDefinition(definition)})`,
@@ -925,9 +957,9 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override updateControl(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     control: AbstractControl,
-    _controlHandle: unknown,
+    _controlHandle: PseudoHandles["control"],
   ): void {
     const definition = control.toControlDefinition();
     this.record(
@@ -937,9 +969,9 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
   }
 
   public override unmountControl(
-    _mapHandle: unknown,
+    _mapHandle: PseudoNativeMap,
     control: AbstractControl,
-    _controlHandle: unknown,
+    _controlHandle: PseudoHandles["control"],
   ): void {
     this.record(`[bmapgl] map.removeControl("${control.id}")`);
     this.clearControlRuntimeState(control.id);

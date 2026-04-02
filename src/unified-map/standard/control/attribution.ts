@@ -1,3 +1,4 @@
+import type { EmptyEventMap } from "../../core/events";
 import type { ControlSlot } from "../../core/types";
 import { AbstractStandardControl } from "./base";
 import type {
@@ -7,7 +8,13 @@ import type {
 
 export abstract class AbstractAttributionControl<
   TOptions extends AttributionControlOptions = AttributionControlOptions,
-> extends AbstractStandardControl<TOptions, AttributionControlDefinition> {
+  TControlHandle = unknown,
+> extends AbstractStandardControl<
+  TOptions,
+  AttributionControlDefinition,
+  EmptyEventMap,
+  TControlHandle
+> {
   public readonly kind = "attribution" as const;
   public readonly meta = {
     renderLayer: "control-dom",

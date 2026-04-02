@@ -9,10 +9,12 @@ import type {
 
 export abstract class AbstractPopupOverlay<
   TOptions extends PopupOverlayOptions = PopupOverlayOptions,
+  TOverlayHandle = unknown,
 > extends AbstractAnchoredOverlay<
   TOptions,
   PopupOverlayDefinition,
-  PopupOverlayEventMap
+  PopupOverlayEventMap,
+  TOverlayHandle
 > {
   private actualOpenStateValue: boolean;
 

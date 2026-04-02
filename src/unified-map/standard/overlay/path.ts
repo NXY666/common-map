@@ -14,10 +14,12 @@ export abstract class AbstractPathOverlay<
   TOptions extends PathOverlayOptions,
   TDefinition extends StandardOverlayDefinition,
   TExtraEvents extends EventMapBase = EmptyEventMap,
+  TOverlayHandle = unknown,
 > extends AbstractStandardOverlay<
   TOptions,
   TDefinition,
-  PathOverlayEventMap & Omit<TExtraEvents, keyof PathOverlayEventMap>
+  PathOverlayEventMap & Omit<TExtraEvents, keyof PathOverlayEventMap>,
+  TOverlayHandle
 > {
   public get coordinates(): readonly LngLatLike[] {
     return this.options.coordinates;

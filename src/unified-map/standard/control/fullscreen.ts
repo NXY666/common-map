@@ -8,10 +8,12 @@ import type {
 
 export abstract class AbstractFullscreenControl<
   TOptions extends FullscreenControlOptions = FullscreenControlOptions,
+  TControlHandle = unknown,
 > extends AbstractStandardControl<
   TOptions,
   FullscreenControlDefinition,
-  FullscreenControlEventMap
+  FullscreenControlEventMap,
+  TControlHandle
 > {
   private actualActiveStateValue: boolean;
 

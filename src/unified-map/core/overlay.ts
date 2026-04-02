@@ -15,8 +15,10 @@ export interface OverlayOptions {
 export abstract class AbstractOverlay<
   TOptions extends OverlayOptions = OverlayOptions,
   TExtraEvents extends EventMapBase = EmptyEventMap,
+  TOverlayHandle = unknown,
 > extends AbstractMapEntity<
   TOptions,
+  TOverlayHandle,
   OverlayExtraEventMap<TOptions> & TExtraEvents
 > {
   public abstract readonly kind: OverlayKind;
