@@ -68,6 +68,11 @@ export interface CameraTransition {
   easing?: "linear" | "ease-in-out" | "fly";
 }
 
+export type MapLifecycleState =
+  | "created"
+  | "mounted"
+  | "destroyed";
+
 export type MapContainer = string | HTMLElement;
 
 export interface MapMountTarget {

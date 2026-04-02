@@ -1,126 +1,138 @@
 ---
 name: implementation-plan-designer
-description: Design complete implementation plans for codebase changes after first checking whether the requirement is reasonable and whether it is grounded in the existing project code. Use when Codex needs to turn a feature request, refactor request, architecture adjustment, or integration change into a concrete implementation plan with goals, likely difficulties, implementation outline, exact file/line edit ranges, and full replacement code guidance.
+description: 在先检查需求合理性和对现有代码理解是否准确的前提下，设计完整实现计划。适用于把功能请求、重构请求、架构调整或集成变更，落成包含目标、难点、实现大纲、精确文件范围与完整替换代码指导的可执行方案。
 ---
 
-# Implementation Plan Designer
+# 实现计划设计师
 
-## Purpose
+## 目标
 
-Produce implementation plans that are codebase-aware, architecture-aware, and immediately actionable.
+产出代码库感知、架构感知、可直接执行的实现计划。
 
-Do not act like a generic brainstorming assistant. Inspect the project first, then decide whether the request is technically reasonable, whether it reflects actual understanding of the current code, and whether the change should be implemented directly or preceded by refactoring.
+禁止泛泛而谈。必须先阅读项目真实代码，再判断：需求是否合理、需求方理解是否贴合现状、应直接实现还是先重构。
 
-Write the final plan as a Markdown file under `docs/` unless the user explicitly asks for a different location.
+除非用户明确指定其他位置，最终计划默认写入 `docs/` 下的 Markdown 文件。
 
-## Non-Negotiable Principles
+## 统一质量目标
 
-1. Do not preserve old-version compatibility by default.
-2. Prefer maintainability, elegance, and architectural fit over migration convenience.
-3. Refuse vague patch-style planning when the correct answer is to refactor an existing abstraction.
-4. Base every design claim on inspected code, not assumption.
-5. Specify exact file targets and line ranges whenever the current code can be located precisely.
-6. Provide complete change guidance without overlapping, duplicated, or missing modifications.
+- 方案应导向优雅实现，避免补丁感。
+- 保持低耦合，优先沿用现有架构扩展点。
+- 控制复杂度，避免无必要分支、抽象和重复。
+- 保证可维护性，职责边界清晰。
+- 符合语言最佳实践与项目既有约定。
 
-## Required Workflow
+## 不可妥协原则
 
-1. Understand the requested change.
-- Restate the requirement in implementation terms.
-- Identify the expected behavior, scope boundaries, and what success looks like.
+1. 默认不保留旧版本兼容。
+2. 可维护性、优雅性、架构契合度优先于迁移便利。
+3. 当正确答案是重构时，拒绝补丁式规划。
+4. 所有设计结论必须基于已检查代码，而非假设。
+5. 能定位时必须给出精确文件与行范围。
+6. 变更指导必须完整，不能重叠、遗漏或留隐性缺口。
+7. 若当前架构无法优雅、低耦合、低复杂度承载需求，必须先给出重构或架构调整路径。
+8. 若建议重构或换架构，必须先征求用户同意，再进入实施路径。
 
-2. Inspect the codebase before planning.
-- Read the relevant modules, interfaces, call sites, tests, and documentation.
-- Trace the current abstraction boundaries and data flow.
-- Identify whether the request matches the real architecture or is based on a mistaken mental model.
+## 必经流程
 
-3. Run the reasonableness gate.
-- Judge whether the requirement itself is reasonable.
-- Judge whether the requester appears to understand the current codebase.
-- If the request conflicts with the architecture, duplicates existing capabilities, or asks for a harmful shortcut, say so explicitly before proposing implementation work.
+1. 理解需求。
+- 用实现语言重述需求。
+- 明确预期行为、边界、成功标准。
 
-4. Decide implementation versus refactor.
-- Choose direct implementation only when the change fits the existing architecture cleanly.
-- Choose refactor-first when the current structure cannot absorb the change without increased coupling, duplicated logic, leaky abstractions, or glue code.
+2. 先读代码再规划。
+- 阅读相关模块、接口、调用点、测试与文档。
+- 追踪当前抽象边界与数据流。
+- 判断需求是否基于真实架构，还是基于错误心智模型。
 
-5. Produce the implementation plan in the required structure.
-- Always include the four required sections: `目标`, `可能的困难`, `实现大纲`, `具体实现`.
-- Keep the plan concrete and file-oriented.
-- Prefer grouped modifications by subsystem rather than a chronological to-do list.
+3. 执行合理性门禁。
+- 判断需求本身是否合理。
+- 判断需求方是否理解当前代码路径。
+- 若需求与架构冲突、重复已有能力、或是有害捷径，必须先明确指出。
 
-6. Save the result to the repository.
-- Create or update a `.md` file in `docs/`.
-- Use a concise hyphen-case file name derived from the topic, for example `docs/coordinate-abstraction-integration-plan.md`.
-- Treat the Markdown file as the primary deliverable, not an optional export.
+4. 决定“直接实现”还是“先重构”。
+- 仅当变更可干净融入现有架构时，选择直接实现。
+- 若会引入耦合膨胀、逻辑重复、抽象泄漏、胶水代码，则选择先重构。
+- 涉及重构或架构调整时，先询问用户是否同意该方向。
 
-## Reasonableness Gate
+5. 按固定结构产出计划。
+- 必须包含四个部分：`目标`、`可能的困难`、`实现大纲`、`具体实现`。
+- 内容必须具体到文件与变更单元。
+- 优先按子系统分组，而非流水账式待办。
 
-Before designing, answer these questions explicitly:
+6. 保存到仓库。
+- 在 `docs/` 下创建或更新 `.md` 文件。
+- 文件名使用主题化短横线命名，如 `docs/coordinate-abstraction-integration-plan.md`。
+- 将 Markdown 文档视为主交付物，而非附带导出。
 
-1. Is the requirement aligned with the project’s actual architecture and responsibilities?
-2. Does the requester appear to understand the relevant existing code paths and abstractions?
-3. Would implementing the request as stated create harmful complexity, compatibility burden, or architectural drift?
-4. Is there a simpler or more correct direction than the one implied by the request?
+## 合理性门禁
 
-If the answer to any item is negative, say so directly. Do not hide the issue inside later sections.
+设计前必须显式回答：
 
-## Planning Standard
+1. 需求是否符合项目真实架构与职责边界？
+2. 需求方是否理解相关代码路径与抽象？
+3. 按原诉求实施是否会引入有害复杂度、兼容负担或架构漂移？
+4. 是否存在更简单或更正确的方向？
+5. 是否满足“优雅、低耦合、低复杂度、易维护、最佳实践”目标？
+
+任一项答案为否，必须直接说明，不能藏在后文细节里。
+
+## 规划标准
 
 ### 目标
 
-- State the final technical objective in concrete terms.
-- Separate user-visible outcomes from internal architectural outcomes when both matter.
-- State any intentional non-goals when they prevent scope creep.
+- 用可落地技术表述最终目标。
+- 同时区分用户可见结果与内部架构结果（若两者都重要）。
+- 明确非目标，防止范围蔓延。
 
 ### 可能的困难
 
-- List the hard parts that are specific to the inspected codebase.
-- Focus on abstraction mismatch, shared state, event sequencing, API surface drift, type constraints, test impact, and migration risk inside the repo.
-- When a difficulty indicates that the current structure is wrong, say that this part needs refactoring.
+- 仅列出与当前代码库真实结构相关的难点。
+- 重点关注：抽象错位、共享状态、事件时序、API 漂移、类型约束、仓库内迁移风险。
+- 若某难点本质是结构问题，明确标注“该处应先重构”。
 
 ### 实现大纲
 
-- Break the work into major change areas.
-- Explain why each area exists and how it integrates with the current architecture.
-- Make dependency order clear.
-- Call out any deletions, interface reshaping, or responsibility moves.
+- 按主要变更区域拆分工作。
+- 说明每块存在的原因及其与现有架构的集成方式。
+- 明确依赖顺序。
+- 标注删除项、接口重塑、职责迁移。
 
 ### 具体实现
 
-For each file or tightly related file group:
+对每个文件（或紧密关联文件组）都要给出：
 
-1. Name the file path.
-2. Give the current line range to inspect or replace when it can be determined from the repository.
-3. State exactly what to change.
-4. Show the target code shape.
-5. Explain why the result is architecturally correct.
+1. 文件路径。
+2. 可定位时给出当前需检查或替换的行范围。
+3. 具体修改内容。
+4. 目标代码形状（完整替换块优先）。
+5. 架构正确性说明。
 
-When providing code guidance:
+给出代码指导时：
 
-- Prefer full replacement blocks for the affected function, type, class, or module section.
-- Do not provide partial snippets that leave hidden gaps.
-- Do not repeat the same modification in multiple places unless each site genuinely needs its own change.
-- If exact line numbers cannot be trusted because the file is unstable, say so and anchor the change by symbol names instead.
+- 优先给受影响函数、类型、类、模块片段的完整替换块。
+- 禁止只给会留下隐性空洞的局部片段。
+- 禁止无必要地重复同一修改说明。
+- 行号不稳定时，明确说明并用符号名锚定修改位置。
 
-## Line-Range Rules
+## 行范围规则
 
-1. Use current repository line numbers after reading the file.
-2. Reference stable units such as function names, exported types, classes, or sections together with the line range.
-3. Do not invent ranges.
-4. If one modification spans multiple adjacent units, group them into one replacement range.
-5. If the code should be deleted, say `delete` explicitly instead of describing it vaguely.
+1. 读取文件后使用当前仓库真实行号。
+2. 用稳定单元（函数名、导出类型、类、章节）+ 行范围共同定位。
+3. 禁止编造行范围。
+4. 相邻单元同改可合并成一个替换范围。
+5. 若应删除，明确写 `delete`，不要模糊描述。
 
-## Architecture Rules
+## 架构规则
 
-1. Integrate the change through existing extension points, abstractions, and module boundaries whenever possible.
-2. Reject plans that bolt logic onto unrelated layers.
-3. Reduce branching and duplication where possible.
-4. Keep public APIs minimal and coherent.
-5. Prefer moving responsibilities to the right layer over adding coordination glue.
-6. If elegance and integration cannot be achieved within the current structure, require refactoring and explain the new ownership boundaries.
+1. 尽量通过现有扩展点、抽象、模块边界集成。
+2. 拒绝把逻辑外挂到无关层。
+3. 主动降低分支复杂度与重复。
+4. 保持公共 API 最小且一致。
+5. 优先把职责放回正确层，而不是添加协调胶水层。
+6. 若无法在当前结构实现优雅集成，必须要求先重构并说明新边界归属。
 
-## Output Format
+## 输出格式
 
-Use this exact structure:
+使用以下固定结构：
 
 ````markdown
 ## 需求判断
@@ -147,28 +159,30 @@ Use this exact structure:
 ```
 - 设计说明：
 ```
+```
 ````
 
-If the request should be rejected or reframed, still keep this structure, but use `实现大纲` and `具体实现` to explain the refactor-first or redesign-first path.
+若请求应被驳回或改造，仍使用该结构；在 `实现大纲` 与 `具体实现` 中说明“先重构/先重设方案”的路径。
 
-## Output Location Rules
+## 输出位置规则
 
-1. Save the final plan in `docs/`.
-2. Prefer updating an existing relevant plan file when the request is clearly a revision of that document.
-3. Otherwise create a new Markdown file with a topic-specific hyphen-case name ending in `-plan.md`.
-4. Keep the document self-contained so it can be reviewed without the chat transcript.
-5. When the request evolves, update the same `docs` file instead of scattering multiple near-duplicate plans.
+1. 最终计划写入 `docs/`。
+2. 若明显是已有计划修订，优先更新原文件。
+3. 否则创建主题化短横线文件名，后缀 `-plan.md`。
+4. 文档必须自包含，可脱离聊天记录独立审阅。
+5. 需求迭代时优先更新同一文件，避免散落近重复文档。
 
-## Quality Bar
+## 质量门槛
 
-Before finishing, verify all of the following:
+完成前必须核对：
 
-1. The plan explicitly judges whether the requirement is reasonable.
-2. The plan explicitly judges whether the requester appears to understand the current code.
-3. The plan avoids backward-compatibility preservation unless there is a strong inspected reason.
-4. The plan names concrete files and line ranges wherever possible.
-5. The plan provides complete code guidance for each affected unit.
-6. The plan keeps complexity, maintainability, and coupling under control.
-7. The plan explains when refactoring is required instead of patching.
-8. The plan fits the existing architecture instead of attaching glue code.
-9. The final deliverable is written to a Markdown file under `docs/`.
+1. 已显式判断需求合理性。
+2. 已显式判断需求方对代码理解是否准确。
+3. 除非有强证据，否则未主动引入向后兼容负担。
+4. 可定位处均给出具体文件与行范围。
+5. 每个受影响单元都有完整修改指导。
+6. 方案控制住复杂度、可维护性与耦合。
+7. 已说明何时必须重构而非打补丁。
+8. 方案通过现有架构集成，而非胶水式附着。
+9. 若涉及重构或换架构，已明确要求先征求用户同意。
+10. 最终交付是 `docs/` 下 Markdown 文档。

@@ -1,95 +1,104 @@
 ---
 name: implementation-plan-analyst
-description: "Review an unimplemented implementation-plan draft for bad ideas, goal mismatch, missing or wrong changes, complexity and coupling growth, poor language best practices, weak architecture integration, and whether refactoring is better than patching. Use when auditing a proposal draft by severity without editing code."
-argument-hint: "Provide objective and draft-plan details (not implemented code), plus optional architecture references."
+description: "审查尚未实现的实现计划草案：识别坏方向、目标偏离、缺失或错误变更、复杂度与耦合膨胀、语言最佳实践问题、架构集成问题，并判断应修订还是先重构。"
+argument-hint: "请提供目标、计划草案（尚未实现）、范围边界与可选架构背景。"
 user-invocable: true
 ---
 
-# Implementation Plan Analyst
+# 实现计划审查员
 
-## What This Skill Produces
-A review-only audit report that ranks issues by severity and decides whether the proposal should be rejected, revised, or replaced by refactoring.
+## 该 Skill 的产出
+仅审查、不改代码的审计报告：按严重度排序问题，并给出“驳回 / 修订 / 先重构”的建议。
 
-## Input Assumption
-- Every invocation is based on an unimplemented proposal draft.
-- Treat all implementation statements as planned changes, not completed changes.
-- Do not switch into code review of already-shipped behavior.
+## 输入前提
+- 每次调用都基于尚未实施的计划草案。
+- 将所有“将会修改”表述视为计划内容，而非已完成事实。
+- 不切换成已上线代码的缺陷审查模式。
 
-## When to Use
-- You need to judge if a proposed implementation is fundamentally harmful.
-- You need to check whether implementation changes match the stated objective.
-- You need a maintainability-first review that ignores migration cost.
-- You need architecture fit analysis rather than patch-level comments.
+## 统一质量目标
+- 代码应优雅、表达清晰、避免补丁感。
+- 保持低耦合，优先融入现有架构边界。
+- 控制复杂度，避免无必要分支、抽象和重复。
+- 方案应长期可维护。
+- 符合语言最佳实践。
 
-## Non-Negotiable Principles
-1. Do not preserve backward compatibility by default.
-2. Ignore delivery cost; optimize for maintainability, elegance, and long-term clarity.
-3. Do not edit code in this workflow; provide analysis only.
-4. Do not treat missing tests as a finding in this workflow.
+## 何时使用
+- 需要判断某个实现方案是否“方向就错了”。
+- 需要核对方案是否真正覆盖目标，而不是只看起来可行。
+- 需要以可维护性优先，忽略迁移成本做审查。
+- 需要架构集成层面的判断，而非局部补丁建议。
 
-## Required Review Dimensions
-1. Is the plan itself a bad idea that works against the goal?
-2. Does implementation match the goal, with no missed or wrong changes?
-3. Does implementation increase complexity or coupling unnecessarily?
-4. Is the implementation inelegant or against language best practices?
-5. Is the implementation poorly integrated into the existing architecture?
-6. Is refactoring better than incremental modification?
+## 不可妥协原则
+1. 默认不保留向后兼容。
+2. 忽略交付成本，优先可维护性、优雅性与长期清晰度。
+3. 本流程只做分析，不做代码修改。
+4. 本流程不把“缺少测试”作为审查结论。
+5. 审查结论必须围绕统一质量目标展开。
 
-## Procedure
-1. Extract context.
-- Identify the objective, boundaries, and current architecture constraints.
-- Confirm the subject is an unimplemented draft plan.
-- Normalize all claims into verifiable statements.
+## 必审维度
+1. 该计划本身是否与目标相悖（即使技术上可实现）？
+2. 计划变更是否完整对齐目标，是否存在漏改、错改、无关改动？
+3. 是否引入不必要复杂度或耦合增长？
+4. 是否不优雅，或违反语言最佳实践，导致维护成本上升？
+5. 是否正确融入现有架构，而不是外挂式拼接？
+6. 是否应该先重构，而不是继续增量补丁？
 
-2. Run harmfulness gate.
-- Decide whether the core approach is harmful even if technically feasible.
-- If harmful, flag as Critical and continue to capture secondary risks.
+## 审查流程
+1. 提取上下文。
+- 明确目标、边界、现有架构约束。
+- 确认对象是“未实施草案”。
+- 将主张转换为可验证判断点。
 
-3. Verify objective alignment.
-- Map each implementation change to an objective requirement.
-- Flag missing changes, wrong changes, and unrelated changes.
+2. 执行有害性门禁。
+- 判断核心路线是否有害。
+- 若有害，标记为“致命”，并继续识别次级风险。
 
-4. Evaluate complexity and coupling.
-- Identify new branches, abstractions, cross-module dependencies, and duplicated logic.
-- Mark avoidable complexity increases as design debt.
+3. 校验目标对齐。
+- 将每条计划变更映射到目标要求。
+- 标记漏项、错项、无关项。
 
-5. Evaluate elegance and best practices.
-- Check naming, API boundaries, error handling, data flow, and idiomatic language usage.
-- Flag anti-patterns and overengineering.
-- Skip test-coverage and missing-test concerns for draft analysis.
+4. 评估复杂度与耦合。
+- 识别新增分支、抽象、跨模块依赖、重复逻辑。
+- 将可避免复杂度上升标记为设计债务。
 
-6. Evaluate architecture integration.
-- Determine whether changes are integrated into existing abstractions or simply attached.
-- Flag glue-style code paths and bypassed extension points.
+5. 评估优雅性与最佳实践。
+- 检查命名、API 边界、错误处理、数据流与语言习惯。
+- 标记反模式和过度工程。
+- 继续忽略测试覆盖相关结论。
 
-7. Make refactor decision.
-- Recommend refactoring when local fixes create persistent debt or architecture drift.
-- Recommend targeted revision only when issues are local and structural direction is sound.
+6. 评估架构集成。
+- 判断是否通过现有扩展点集成，而非旁路拼接。
+- 标记胶水式路径与被绕过的抽象。
 
-8. Produce severity-ranked findings.
-- Order findings by severity first, then by architectural impact.
-- Include evidence, impact, and clear recommendation for each finding.
+7. 做出重构判断。
+- 局部修补会带来长期债务时，建议先重构。
+- 仅当问题局部且方向正确时，建议定点修订。
+- 若建议重构或架构调整，明确写出“需先征求用户同意”。
 
-## Severity Model
-- 致命: Core direction is harmful, guarantees long-term damage, or directly contradicts the objective.
-- 高: Major architecture mismatch, severe maintainability risk, or substantial wrong/missing implementation.
-- 中: Noticeable complexity growth or best-practice violations with manageable scope.
-- 低: Minor clarity or consistency issues without structural risk.
+8. 输出按严重度排序的问题清单。
+- 先按严重度，再按架构影响排序。
+- 每条必须包含证据、影响、建议。
 
-## Output Format
-1. Findings (ordered by severity)
-- For each item: Dimension, Evidence, Impact, Recommendation.
+## 严重度模型
+- 致命：核心方向有害，保证产生长期损害，或直接违背目标。
+- 高：重大架构错配、严重可维护性风险、或明显漏改/错改。
+- 中：存在可见复杂度膨胀或最佳实践违背，范围可控但不应忽视。
+- 低：局部清晰度或一致性问题，暂不构成结构性风险。
 
-2. Open Questions and Assumptions
-- List uncertainties that block high-confidence analysis.
+## 输出格式
+1. 审查发现（按严重度排序）
+- 每项包含：维度、证据、影响、建议。
 
-3. Optional Conclusion
-- If enough evidence exists, add a concise recommendation.
-- If not enough evidence exists, skip conclusion and keep focus on findings.
+2. 开放问题与假设
+- 列出影响高置信度判断的不确定点。
 
-## Completion Checks
-- All six review dimensions are explicitly covered.
-- All three principles are respected.
-- Findings are severity-ranked.
-- No direct code modification is performed.
-- Output remains issue-focused and actionable.
+3. 可选结论
+- 证据充分时给出简要结论。
+- 证据不足时跳过结论，保持问题导向。
+
+## 完成检查
+- 六个必审维度均已覆盖。
+- 不可妥协原则均已遵守。
+- 问题已按严重度排序。
+- 未进行任何直接代码修改。
+- 输出保持问题导向且可执行。

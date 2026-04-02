@@ -1,41 +1,23 @@
-import {
-  TypedEvented,
-  type EventKey,
-  type MapEventMap,
-  type EventPayload,
-  type Subscription,
-} from "./events";
-import {
-  getControlRequiredCapabilities,
-  getOverlayRequiredCapabilities,
-  type MapCapability,
-} from "./capability";
-import type { AbstractMapAdapter } from "./adapter";
-import type { AbstractControl } from "./control";
-import type { AbstractLayer } from "./layer";
-import type { AbstractOverlay } from "./overlay";
-import type { AbstractSource } from "./source";
+import {type EventKey, type EventPayload, type MapEventMap, type Subscription, TypedEvented,} from "./events";
+import {getControlRequiredCapabilities, getOverlayRequiredCapabilities, type MapCapability,} from "./capability";
+import type {AbstractMapAdapter} from "./adapter";
+import type {AbstractControl} from "./control";
+import type {AbstractLayer} from "./layer";
+import type {AbstractOverlay} from "./overlay";
+import type {AbstractSource} from "./source";
 import type {
   CameraState,
   CameraTransition,
   LngLatLike,
   LngLatLiteral,
+  MapLifecycleState,
   ScreenPoint,
   UnifiedMapOptions,
   UnifiedMapRuntimeOptions,
   UnifiedMapStyle,
 } from "./types";
-import {
-  bindManagedEntity,
-  mountManagedEntity,
-  releaseManagedEntity,
-  unmountManagedEntity,
-} from "./internal-lifecycle";
-import {
-  createMapEventBridge,
-  hasAdapterEventAccess,
-  type AdapterEventAccess,
-} from "./internal-events";
+import {bindManagedEntity, mountManagedEntity, releaseManagedEntity, unmountManagedEntity,} from "./internal-lifecycle";
+import {type AdapterEventAccess, createMapEventBridge, hasAdapterEventAccess,} from "./internal-events";
 
 interface RemoveSourceOptions {
   cascade?: boolean;
@@ -51,20 +33,39 @@ function combineSubscriptions(subscriptions: readonly Subscription[]): Subscript
   };
 }
 
+function createDefaultView(): CameraState {
+  return {
+    center: {lng: 0, lat: 0},
+    zoom: 0,
+    bearing: 0,
+    pitch: 0,
+  };
+}
+
 export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   public readonly id: string;
+
   public readonly adapter: AbstractMapAdapter;
 
   protected readonly options: UnifiedMapOptions;
+
   protected nativeMap?: unknown;
-  private runtimeOptions: UnifiedMapRuntimeOptions;
-  private loadPromise?: Promise<void>;
-  private loaded = false;
 
   protected readonly sources = new Map<string, AbstractSource>();
+
   protected readonly layers = new Map<string, AbstractLayer>();
+
   protected readonly overlays = new Map<string, AbstractOverlay>();
+
   protected readonly controls = new Map<string, AbstractControl>();
+
+  private runtimeOptions: UnifiedMapRuntimeOptions;
+
+  private loadPromise?: Promise<void>;
+
+  private loaded = false;
+
+  private stateValue: MapLifecycleState = "created";
 
   private readonly subscriptions = new Map<string, Subscription>();
 
@@ -82,8 +83,16 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     };
   }
 
+  public get state(): MapLifecycleState {
+    return this.stateValue;
+  }
+
   public get isMounted(): boolean {
-    return this.nativeMap !== undefined;
+    return this.stateValue === "mounted";
+  }
+
+  public get isDestroyed(): boolean {
+    return this.stateValue === "destroyed";
   }
 
   public get isLoaded(): boolean {
@@ -91,6 +100,11 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public async load(): Promise<this> {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot load.`);
+      return this;
+    }
+
     if (this.loaded) {
       return this;
     }
@@ -110,40 +124,77 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public mount(target = this.options.target): this {
-    if (this.nativeMap) {
+    if (this.isDestroyed) {
+      console.warn("Cannot mount a destroyed map.");
+      return this;
+    }
+
+    if (this.isMounted) {
       return this;
     }
 
     if (!this.loaded) {
-      throw new Error(
-        `Map "${this.id}" must be loaded before mount(). Call await map.load() first.`,
-      );
+      console.warn("Cannot mount before load().");
+      return this;
     }
 
     if (!target) {
-      throw new Error(`Map "${this.id}" requires a mount target.`);
+      console.warn("Cannot mount without a target.");
+      return this;
     }
 
-    this.nativeMap = this.adapter.createMap(
-      { container: target },
-      this.getResolvedOptions(target),
-      createMapEventBridge(this),
-    );
+    let nativeMap: unknown | undefined;
+    try {
+      nativeMap = this.adapter.createMap(
+        {container: target},
+        this.getResolvedOptions(target),
+        createMapEventBridge(this),
+      );
+    } catch (error) {
+      this.fireError(
+        "mount",
+        `Failed to create native map for "${this.id}".`,
+        error,
+      );
+    }
+
+    if (nativeMap === undefined) {
+      return this;
+    }
+
+    this.nativeMap = nativeMap;
+    this.stateValue = "mounted";
 
     for (const source of this.sources.values()) {
-      this.materializeSource(source);
+      try {
+        this.materializeSource(source);
+      } catch (error) {
+        this.fireError("mount", `Failed to mount source "${source.id}".`, error, "source", source.id);
+      }
     }
 
     for (const layer of this.layers.values()) {
-      this.materializeLayer(layer);
+      try {
+        this.materializeLayer(layer);
+      } catch (error) {
+        this.fireError("mount", `Failed to mount layer "${layer.id}".`, error, "layer", layer.id);
+      }
     }
 
     for (const overlay of this.overlays.values()) {
-      this.materializeOverlay(overlay);
+      try {
+        this.materializeOverlay(overlay);
+      } catch (error) {
+        this.fireError("mount", `Failed to mount overlay "${overlay.id}".`, error, "overlay", overlay.id);
+      }
     }
 
     for (const control of this.controls.values()) {
-      this.materializeControl(control);
+      try {
+        this.materializeControl(control);
+      } catch (error) {
+        this.fireError("mount", `Failed to mount control "${control.id}".`, error, "control", control.id);
+      }
     }
 
     this.fire("mounted", {
@@ -154,29 +205,97 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     return this;
   }
 
-  public destroy(): this {
-    if (!this.nativeMap) {
+  public unmount(): this {
+    if (this.isDestroyed) {
+      console.warn("Cannot unmount a destroyed map.");
       return this;
     }
 
+    const nativeMap = this.nativeMap;
+    if (!nativeMap) {
+      return this;
+    }
+
+    const operation = "unmount" as const;
+
     for (const control of Array.from(this.controls.values()).reverse()) {
-      this.dematerializeControl(control);
+      this.dematerializeControl(control, operation);
     }
 
     for (const overlay of Array.from(this.overlays.values()).reverse()) {
-      this.dematerializeOverlay(overlay);
+      this.dematerializeOverlay(overlay, operation);
     }
 
     for (const layer of Array.from(this.layers.values()).reverse()) {
-      this.dematerializeLayer(layer);
+      this.dematerializeLayer(layer, operation);
     }
 
     for (const source of Array.from(this.sources.values()).reverse()) {
-      this.dematerializeSource(source);
+      this.dematerializeSource(source, operation);
     }
 
-    this.adapter.destroyMap(this.nativeMap);
+    this.destroyNativeMap(nativeMap, operation);
     this.nativeMap = undefined;
+    this.stateValue = "created";
+
+    this.fire("unmounted", {
+      mapId: this.id,
+      engine: this.adapter.engine,
+    });
+
+    return this;
+  }
+
+  public destroy(): this {
+    if (this.isDestroyed) {
+      return this;
+    }
+
+    if (this.stateValue === "mounted") {
+      this.unmount();
+    }
+
+    for (const control of Array.from(this.controls.values()).reverse()) {
+      try {
+        releaseManagedEntity(control, this);
+      } catch (error) {
+        this.fireError("destroy", `Failed to release control "${control.id}" during destroy.`, error, "control", control.id);
+      }
+      this.unbindEntity(control.id);
+    }
+    this.controls.clear();
+
+    for (const overlay of Array.from(this.overlays.values()).reverse()) {
+      try {
+        releaseManagedEntity(overlay, this);
+      } catch (error) {
+        this.fireError("destroy", `Failed to release overlay "${overlay.id}" during destroy.`, error, "overlay", overlay.id);
+      }
+      this.unbindEntity(overlay.id);
+    }
+    this.overlays.clear();
+
+    for (const layer of Array.from(this.layers.values()).reverse()) {
+      try {
+        releaseManagedEntity(layer, this);
+      } catch (error) {
+        this.fireError("destroy", `Failed to release layer "${layer.id}" during destroy.`, error, "layer", layer.id);
+      }
+      this.unbindEntity(layer.id);
+    }
+    this.layers.clear();
+
+    for (const source of Array.from(this.sources.values()).reverse()) {
+      try {
+        releaseManagedEntity(source, this);
+      } catch (error) {
+        this.fireError("destroy", `Failed to release source "${source.id}" during destroy.`, error, "source", source.id);
+      }
+      this.unbindEntity(source.id);
+    }
+    this.sources.clear();
+
+    this.stateValue = "destroyed";
 
     this.fire("destroyed", {
       mapId: this.id,
@@ -197,7 +316,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   ): this {
     if (!hasAdapterEventAccess(access)) {
       throw new Error(
-        `Map "${this.id}" interaction events can only be emitted by an adapter bridge.`,
+        `Map interaction events can only be emitted by an adapter bridge.`,
       );
     }
 
@@ -205,8 +324,13 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public setView(view: CameraState, transition?: CameraTransition): this {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot setView.`);
+      return this;
+    }
+
     if (!this.nativeMap) {
-      throw new Error(`Map "${this.id}" is not mounted.`);
+      throw new Error(`Map is not mounted.`);
     }
 
     this.adapter.setView(this.nativeMap, view, transition);
@@ -214,6 +338,11 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public patchMapOptions(patch: UnifiedMapRuntimeOptions): this {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot patchMapOptions.`);
+      return this;
+    }
+
     const previousOptions = {
       ...this.runtimeOptions,
     };
@@ -235,12 +364,13 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public setStyle(style: UnifiedMapStyle): this {
-    return this.patchMapOptions({ style });
+    return this.patchMapOptions({style});
   }
 
   public getView(): CameraState {
     if (!this.nativeMap) {
-      return this.options.initialView;
+      console.warn(`Map is not mounted.`);
+      return createDefaultView();
     }
 
     return this.adapter.getView(this.nativeMap);
@@ -248,7 +378,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
 
   public project(lngLat: LngLatLike): ScreenPoint {
     if (!this.nativeMap) {
-      throw new Error(`Map "${this.id}" is not mounted.`);
+      throw new Error(`Map is not mounted.`);
     }
 
     return this.adapter.project(this.nativeMap, lngLat);
@@ -256,13 +386,17 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
 
   public unproject(point: ScreenPoint): LngLatLiteral {
     if (!this.nativeMap) {
-      throw new Error(`Map "${this.id}" is not mounted.`);
+      throw new Error(`Map is not mounted.`);
     }
 
     return this.adapter.unproject(this.nativeMap, point);
   }
 
   public addSource<TSource extends AbstractSource>(source: TSource): TSource {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot addSource.`);
+      return source;
+    }
     this.ensureUnique(this.sources, source.id, "source");
     bindManagedEntity(source, this);
     this.sources.set(source.id, source);
@@ -272,7 +406,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
       this.materializeSource(source);
     }
 
-    this.fire("sourceAdded", { sourceId: source.id });
+    this.fire("sourceAdded", {sourceId: source.id});
     return source;
   }
 
@@ -286,6 +420,10 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     sourceId: string,
     options: RemoveSourceOptions = {},
   ): this {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot removeSource.`);
+      return this;
+    }
     const source = this.sources.get(sourceId);
     if (!source) {
       return this;
@@ -314,11 +452,15 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     releaseManagedEntity(source, this);
     this.unbindEntity(source.id);
     this.sources.delete(sourceId);
-    this.fire("sourceRemoved", { sourceId });
+    this.fire("sourceRemoved", {sourceId});
     return this;
   }
 
   public addLayer<TLayer extends AbstractLayer>(layer: TLayer): TLayer {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot addLayer.`);
+      return layer;
+    }
     if (layer.sourceId && !this.sources.has(layer.sourceId)) {
       throw new Error(
         `Layer "${layer.id}" references missing source "${layer.sourceId}".`,
@@ -334,7 +476,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
       this.materializeLayer(layer);
     }
 
-    this.fire("layerAdded", { layerId: layer.id });
+    this.fire("layerAdded", {layerId: layer.id});
     return layer;
   }
 
@@ -345,6 +487,10 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public removeLayer(layerId: string): this {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot removeLayer.`);
+      return this;
+    }
     const layer = this.layers.get(layerId);
     if (!layer) {
       return this;
@@ -357,11 +503,15 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     releaseManagedEntity(layer, this);
     this.unbindEntity(layer.id);
     this.layers.delete(layerId);
-    this.fire("layerRemoved", { layerId });
+    this.fire("layerRemoved", {layerId});
     return this;
   }
 
   public addOverlay<TOverlay extends AbstractOverlay>(overlay: TOverlay): TOverlay {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot addOverlay.`);
+      return overlay;
+    }
     if (this.nativeMap) {
       this.assertOverlayCapabilities(overlay);
     }
@@ -375,7 +525,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
       this.materializeOverlay(overlay);
     }
 
-    this.fire("overlayAdded", { overlayId: overlay.id });
+    this.fire("overlayAdded", {overlayId: overlay.id});
     return overlay;
   }
 
@@ -386,6 +536,10 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public removeOverlay(overlayId: string): this {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot removeOverlay.`);
+      return this;
+    }
     const overlay = this.overlays.get(overlayId);
     if (!overlay) {
       return this;
@@ -398,11 +552,15 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     releaseManagedEntity(overlay, this);
     this.unbindEntity(overlay.id);
     this.overlays.delete(overlayId);
-    this.fire("overlayRemoved", { overlayId });
+    this.fire("overlayRemoved", {overlayId});
     return this;
   }
 
   public addControl<TControl extends AbstractControl>(control: TControl): TControl {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot addControl.`);
+      return control;
+    }
     if (this.nativeMap) {
       this.assertControlCapabilities(control);
     }
@@ -416,7 +574,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
       this.materializeControl(control);
     }
 
-    this.fire("controlAdded", { controlId: control.id });
+    this.fire("controlAdded", {controlId: control.id});
     return control;
   }
 
@@ -427,6 +585,10 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
   }
 
   public removeControl(controlId: string): this {
+    if (this.isDestroyed) {
+      console.warn(`Map has been destroyed and cannot removeControl.`);
+      return this;
+    }
     const control = this.controls.get(controlId);
     if (!control) {
       return this;
@@ -439,7 +601,7 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     releaseManagedEntity(control, this);
     this.unbindEntity(control.id);
     this.controls.delete(controlId);
-    this.fire("controlRemoved", { controlId });
+    this.fire("controlRemoved", {controlId});
     return this;
   }
 
@@ -549,13 +711,35 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     mountManagedEntity(source, this, handle);
   }
 
-  private dematerializeSource(source: AbstractSource): void {
+  private dematerializeSource(
+    source: AbstractSource,
+    operation?: "unmount" | "destroy",
+  ): void {
     if (!this.nativeMap || !source.isMounted()) {
       return;
     }
 
-    this.adapter.unmountSource(this.nativeMap, source, source.getNativeHandle());
-    unmountManagedEntity(source);
+    if (!operation) {
+      this.adapter.unmountSource(this.nativeMap, source, source.getNativeHandle());
+      unmountManagedEntity(source);
+      return;
+    }
+
+    try {
+      this.adapter.unmountSource(this.nativeMap, source, source.getNativeHandle());
+    } catch (error) {
+      this.fireError(operation, `Failed to unmount source "${source.id}".`, error, "source", source.id);
+    }
+
+    if (!source.isMounted()) {
+      return;
+    }
+
+    try {
+      unmountManagedEntity(source);
+    } catch (error) {
+      this.fireError(operation, `Failed to detach mounted source "${source.id}" after ${operation}.`, error, "source", source.id);
+    }
   }
 
   private materializeLayer(layer: AbstractLayer): void {
@@ -567,13 +751,35 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     mountManagedEntity(layer, this, handle);
   }
 
-  private dematerializeLayer(layer: AbstractLayer): void {
+  private dematerializeLayer(
+    layer: AbstractLayer,
+    operation?: "unmount" | "destroy",
+  ): void {
     if (!this.nativeMap || !layer.isMounted()) {
       return;
     }
 
-    this.adapter.unmountLayer(this.nativeMap, layer, layer.getNativeHandle());
-    unmountManagedEntity(layer);
+    if (!operation) {
+      this.adapter.unmountLayer(this.nativeMap, layer, layer.getNativeHandle());
+      unmountManagedEntity(layer);
+      return;
+    }
+
+    try {
+      this.adapter.unmountLayer(this.nativeMap, layer, layer.getNativeHandle());
+    } catch (error) {
+      this.fireError(operation, `Failed to unmount layer "${layer.id}".`, error, "layer", layer.id);
+    }
+
+    if (!layer.isMounted()) {
+      return;
+    }
+
+    try {
+      unmountManagedEntity(layer);
+    } catch (error) {
+      this.fireError(operation, `Failed to detach mounted layer "${layer.id}" after ${operation}.`, error, "layer", layer.id);
+    }
   }
 
   private materializeOverlay(overlay: AbstractOverlay): void {
@@ -587,17 +793,43 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     mountManagedEntity(overlay, this, handle);
   }
 
-  private dematerializeOverlay(overlay: AbstractOverlay): void {
+  private dematerializeOverlay(
+    overlay: AbstractOverlay,
+    operation?: "unmount" | "destroy",
+  ): void {
     if (!this.nativeMap || !overlay.isMounted()) {
       return;
     }
 
-    this.adapter.unmountOverlay(
-      this.nativeMap,
-      overlay,
-      overlay.getNativeHandle(),
-    );
-    unmountManagedEntity(overlay);
+    if (!operation) {
+      this.adapter.unmountOverlay(
+        this.nativeMap,
+        overlay,
+        overlay.getNativeHandle(),
+      );
+      unmountManagedEntity(overlay);
+      return;
+    }
+
+    try {
+      this.adapter.unmountOverlay(
+        this.nativeMap,
+        overlay,
+        overlay.getNativeHandle(),
+      );
+    } catch (error) {
+      this.fireError(operation, `Failed to unmount overlay "${overlay.id}".`, error, "overlay", overlay.id);
+    }
+
+    if (!overlay.isMounted()) {
+      return;
+    }
+
+    try {
+      unmountManagedEntity(overlay);
+    } catch (error) {
+      this.fireError(operation, `Failed to detach mounted overlay "${overlay.id}" after ${operation}.`, error, "overlay", overlay.id);
+    }
   }
 
   private materializeControl(control: AbstractControl): void {
@@ -611,17 +843,58 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     mountManagedEntity(control, this, handle);
   }
 
-  private dematerializeControl(control: AbstractControl): void {
+  private dematerializeControl(
+    control: AbstractControl,
+    operation?: "unmount" | "destroy",
+  ): void {
     if (!this.nativeMap || !control.isMounted()) {
       return;
     }
 
-    this.adapter.unmountControl(
-      this.nativeMap,
-      control,
-      control.getNativeHandle(),
-    );
-    unmountManagedEntity(control);
+    if (!operation) {
+      this.adapter.unmountControl(
+        this.nativeMap,
+        control,
+        control.getNativeHandle(),
+      );
+      unmountManagedEntity(control);
+      return;
+    }
+
+    try {
+      this.adapter.unmountControl(
+        this.nativeMap,
+        control,
+        control.getNativeHandle(),
+      );
+    } catch (error) {
+      this.fireError(operation, `Failed to unmount control "${control.id}".`, error, "control", control.id);
+    }
+
+    if (!control.isMounted()) {
+      return;
+    }
+
+    try {
+      unmountManagedEntity(control);
+    } catch (error) {
+      this.fireError(operation, `Failed to detach mounted control "${control.id}" after ${operation}.`, error, "control", control.id);
+    }
+  }
+
+  private destroyNativeMap(
+    nativeMap: unknown,
+    operation: "unmount" | "destroy",
+  ): void {
+    try {
+      this.adapter.destroyMap(nativeMap);
+    } catch (error) {
+      this.fireError(
+        operation,
+        `Failed to destroy native map during ${operation}.`,
+        error,
+      );
+    }
   }
 
   private ensureUnique<TValue>(
@@ -650,12 +923,30 @@ export abstract class AbstractMap extends TypedEvented<MapEventMap> {
     }
   }
 
+  private fireError(
+    operation: "mount" | "unmount" | "destroy",
+    message: string,
+    error: unknown,
+    entityKind?: "map" | "source" | "layer" | "overlay" | "control" | undefined,
+    entityId?: string | undefined
+  ): void {
+    console.warn(message);
+    this.fire("error", {
+      mapId: this.id,
+      operation,
+      message,
+      error,
+      entityKind,
+      entityId
+    });
+  }
+
   private getResolvedOptions(target = this.options.target): UnifiedMapOptions {
     return {
       ...this.options,
       ...this.runtimeOptions,
+      initialView: this.options.initialView,
       target,
     };
   }
-
 }

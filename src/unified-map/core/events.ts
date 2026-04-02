@@ -251,9 +251,21 @@ interface MapLifecycleEventMap extends EventMapBase {
     mapId: string;
     engine: string;
   };
+  unmounted: {
+    mapId: string;
+    engine: string;
+  };
   destroyed: {
     mapId: string;
     engine: string;
+  };
+  error: {
+	  mapId: string;
+	  operation: "mount" | "unmount" | "destroy";
+	  message: string;
+	  error: unknown;
+	  entityKind?: "map" | "source" | "layer" | "overlay" | "control";
+	  entityId?: string;
   };
   // Fires only after the adapter observes an actual camera change.
   viewChanged: {
