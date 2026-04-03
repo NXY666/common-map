@@ -29,11 +29,6 @@ export abstract class AbstractPolylineOverlay<
     return this;
   }
 
-  public setCurve(curve: boolean): this {
-    this.patchOptions({ curve } as Partial<TOptions>);
-    return this;
-  }
-
   public toStandardOverlayDefinition(): PolylineOverlayDefinition {
     return {
       id: this.id,

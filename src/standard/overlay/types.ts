@@ -89,6 +89,7 @@ export interface PolylineStyle {
   dashArray?: readonly number[];
   lineCap?: "butt" | "round" | "square";
   lineJoin?: "miter" | "round" | "bevel";
+  curve?: boolean;
 }
 
 export interface PolygonStyle extends PolylineStyle {
@@ -100,7 +101,6 @@ export interface CircleStyle extends PolygonStyle {}
 
 export interface PolylineOverlayOptions extends PathOverlayOptions {
   style?: PolylineStyle;
-  curve?: boolean;
 }
 
 export interface PolygonOverlayOptions extends PathOverlayOptions {
