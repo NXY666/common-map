@@ -7,7 +7,7 @@
 - 关键依据：
   - `src/core/types.ts` 直接引入 `LayerSpecification` / `SourceSpecification` / `StyleSpecification`（`L1`），并在 `SourceDefinition` / `DataLayerDefinition` 暴露 `mapLibreSource` / `mapLibreLayer`（`L156-L187`）。
   - `src/core/types.ts` 中 `OverlayKind` / `ControlKind` 仍使用开放式 `| (string & {})`（`L118-L140`），削弱了判别联合的穷举价值。
-  - `src/core/layer.ts` 的 `SystemLayerOptions.systemKind` 与 `SystemLayerDefinition.systemKind` 构成双真相源（`src/core/layer.ts L30-L33`，`src/core/types.ts L190-L194`）。
+  - 旧实现里 `src/core/layer.ts` 的 `SystemLayerOptions.systemKind` 与 `SystemLayerDefinition.systemKind` 构成双真相源（`src/core/layer.ts L30-L33`，`src/core/types.ts L190-L194`）。
   - `src/standard/overlay/types.ts` 和 `src/standard/control/types.ts` 重新声明了 `visible / zIndex / position / offset / metadata`（`src/standard/overlay/types.ts L17-L31`，`src/standard/control/types.ts L17-L21`），与 `src/core/overlay.ts` / `src/core/control.ts` / `src/core/layer.ts` 重复。
   - `src/standard/overlay/base.ts`、`src/standard/overlay/anchored.ts`、`src/standard/overlay/path.ts`、`src/standard/control/base.ts` 存在 `as never` 和 `as unknown as`（`src/standard/overlay/base.ts L60-L90`，`src/standard/overlay/anchored.ts L32`，`src/standard/overlay/path.ts L23`，`src/standard/control/base.ts L58-L95`），说明当前事件和 definition 泛型关系没有被类型系统正确表达。
   - `dev/pseudo/demo-models.ts` 与 `dev/pseudo/pseudo-adapters.ts` 已经在消费 `mapLibreSource` / `mapLibreLayer`（`dev/pseudo/demo-models.ts L65-L113`，`dev/pseudo/pseudo-adapters.ts L569-L599`），因此这次改造必须附带迁移计划，不能只改 `src/core`。
@@ -27,10 +27,8 @@
   - 本轮不保留“旧类型字段与新字段并存”的兼容层。若接受本方案，实施时按一次性重构处理。
 
 ## 可能的困难
-- `core` 与 pseudo demo 有真实耦合：`dev/pseudo/demo-models.ts` 当前把 `mapLibreSource` / `mapLibreLayer` 当成 adapter 直通槽位，移除后必须同步改 pseudo adapter 的读取路径，否则 demo 会断。
 - `overlay/control` 的事件泛型是结构性问题：只删断言而不改事件映射组合方式，会很快回到 `as never`。
 - `kind` 收紧后会影响所有 `switch (definition.kind)`、`Extract<OverlayKind, ...>`、`Extract<ControlKind, ...>` 的类型推导；这是必要收缩，但需要一次性改干净。
-- `SystemLayer` 的 `systemKind` 目前同时出现在 options 和 definition，两边都在用；若不先确定唯一真相源，后续 adapter 很容易读错。
 - 文档同步不可省：仓库已有 `docs/maplibre-capability-matrix.md` 与 `docs/unified-map-api-guide.md` 明确写了 `mapLibreSource` / `mapLibreLayer`，实现后若不一起更新，文档会直接误导后续开发。
 - 该需求本质上属于“先重构，再实施”。如果你不同意把 `core` 从 MapLibre 直通结构中抽离，那就不应该推进本方案，而应该改成“承认 MapLibre-first，再把命名和泛型收干净”的窄方案。
 

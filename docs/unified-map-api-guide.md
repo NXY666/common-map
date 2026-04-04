@@ -219,12 +219,12 @@ stateDiagram-v2
 - “Definition 对象”负责把状态导出成统一、可翻译的结构。
 - “CapabilityDescriptor” 负责声明这套结构在某个引擎里是 `native`、`emulated` 还是 `none`。
 
-还需要特别注意两个 MapLibre 定向扩展位：
+还需要特别注意 `engineExtensions` 扩展位：
 
-- `SourceDefinition.mapLibreSource`
-- `DataLayerDefinition.mapLibreLayer`
+- `SourceDefinition.engineExtensions?.maplibre.source`
+- `DataLayerDefinition.engineExtensions?.maplibre.layer`
 
-这两个字段不是统一抽象的必需字段，而是为 MapLibre 这类 style-spec 引擎提供的直通优化位。其他 adapter 可以忽略，也可以定义自己的转译策略。
+这两个字段不是统一抽象的必需字段，而是为 MapLibre 这类 style-spec 引擎提供的扩展优化位。core 不再直接依赖 MapLibre 类型，具体的引擎结构下沉到 adapter / demo 侧。其他 adapter 可以忽略，也可以定义自己的扩展字段。
 
 ## 5. 类结构图
 
@@ -464,7 +464,7 @@ classDiagram
 | `AbstractSource<TOptions>` | `core/source.ts` | 数据源抽象层 | 提供 `toSourceDefinition()` 与 `dataChanged` 通知 |
 | `AbstractLayer<TOptions, TDefinition>` | `core/layer.ts` | 图层抽象层 | 提供 `visible/zIndex` 状态与统一定义导出 |
 | `AbstractDataLayer<TPaint, TOptions>` | `core/layer.ts` | 数据图层基类 | 固定 `domain = data`，从 `options.sourceId` 读取 source 依赖 |
-| `AbstractSystemLayer<TOptions>` | `core/layer.ts` | 系统图层基类 | 固定 `kind = system`、`domain = system` |
+| `AbstractSystemLayer<TSystemKind, TOptions>` | `core/layer.ts` | 系统图层基类 | 固定 `kind = system`、`domain = system`，并显式声明 `systemKind` |
 | `AbstractOverlay<TOptions>` | `core/overlay.ts` | 覆盖物抽象层 | 统一位置更新与定义导出 |
 | `AbstractControl<TOptions>` | `core/control.ts` | 控件抽象层 | 统一控件槽位更新与定义导出 |
 | `AbstractCapabilityProfile<TCapability>` | `core/capability.ts` | 能力声明基类 | 支持 `get / supports / assert / list` |
@@ -472,7 +472,7 @@ classDiagram
 | `AbstractMapAdapter` | `core/adapter.ts` | 适配器基类 | 规定地图与实体的完整挂载更新接口 |
 | `AbstractMap` | `core/map.ts` | 统一地图调度中心 | 持有注册表、订阅、materialize / dematerialize 逻辑 |
 | `DemoGeoJsonSource` | `pseudo/demo-models.ts` | 演示 GeoJSON 数据源 | `setData()` 触发 `dataChanged` |
-| `DemoLineLayer` | `pseudo/demo-models.ts` | 演示线图层 | 输出 `mapLibreLayer` 兼容结构 |
+| `DemoLineLayer` | `pseudo/demo-models.ts` | 演示线图层 | 输出 `engineExtensions.maplibre.layer` 兼容结构 |
 | `DemoMarkerOverlay` | `pseudo/demo-models.ts` | 演示 Marker 覆盖物 | 统一导出 marker 定义 |
 | `DemoNavigationControl` | `pseudo/demo-models.ts` | 演示导航控件 | 默认停靠在 `top-right` |
 | `DemoMap` | `pseudo/demo-models.ts` | 演示地图类 | 仅继承 `AbstractMap`，不额外加逻辑 |
@@ -593,7 +593,7 @@ classDiagram
 
 这类图层通常最适合 MapLibre、Mapbox GL 一类引擎，因为它们有原生的 source / layer 分离模型。
 
-### 6.7 `AbstractSystemLayer<TOptions>`
+### 6.7 `AbstractSystemLayer<TSystemKind, TOptions>`
 
 `AbstractSystemLayer` 是面向平台型系统图层的基类。
 
@@ -602,7 +602,7 @@ classDiagram
 - `kind = "system"`
 - `domain = "system"`
 
-同时通过 `systemKind` 暴露系统图层语义，例如：
+同时通过类上的只读 `systemKind` 暴露系统图层语义，并在 `toLayerDefinition()` 时写入 definition 顶层，例如：
 
 - `basemap`
 - `traffic`
@@ -774,7 +774,7 @@ classDiagram
 
 - `kind = "geojson"`
 - `setData(data)`：先 `patchOptions({ data })`，再 `notifyDataChanged("replace-data")`
-- `toSourceDefinition()`：输出统一 source 定义，并附带 `mapLibreSource`
+- `toSourceDefinition()`：输出统一 source 定义，并附带 `engineExtensions.maplibre.source`
 
 这个类很好地展示了当前 `Source` 子类的推荐写法：
 
@@ -791,7 +791,7 @@ classDiagram
 - 继承自 `AbstractDataLayer`
 - `kind = "line"`
 - `options.sourceId` 为必填
-- `toLayerDefinition()` 同时输出统一字段和 `mapLibreLayer`
+- `toLayerDefinition()` 同时输出统一字段和 `engineExtensions.maplibre.layer`
 
 它代表的就是最典型的 MapLibre 风格数据图层：
 

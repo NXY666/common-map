@@ -1,5 +1,3 @@
-import type {LayerSpecification, SourceSpecification, StyleSpecification,} from "maplibre-gl";
-
 export type LngLatTuple = readonly [lng: number, lat: number];
 
 export interface LngLatLiteral {
@@ -81,7 +79,7 @@ export type SourceKind =
   | "raster"
   | "image"
   | "canvas"
-  | (string & {});
+  | "custom";
 
 export type LayerKind =
   | "background"
@@ -93,8 +91,7 @@ export type LayerKind =
   | "fill-extrusion"
   | "raster"
   | "system"
-  | "custom"
-  | (string & {});
+  | "custom";
 
 export type LayerDomain = "data" | "system";
 
@@ -112,8 +109,7 @@ export type SystemLayerKind =
   | "buildings"
   | "indoor"
   | "terrain"
-  | "custom"
-  | (string & {});
+  | "custom";
 
 export type OverlayKind =
   | "marker"
@@ -122,8 +118,7 @@ export type OverlayKind =
   | "polyline"
   | "polygon"
   | "circle"
-  | "custom"
-  | (string & {});
+  | "custom";
 
 export type ControlKind =
   | "navigation"
@@ -131,8 +126,7 @@ export type ControlKind =
   | "fullscreen"
   | "geolocate"
   | "attribution"
-  | "custom"
-  | (string & {});
+  | "custom";
 
 export type ControlSlot =
   | "top-left"
@@ -140,7 +134,7 @@ export type ControlSlot =
   | "bottom-left"
   | "bottom-right";
 
-export type UnifiedMapStyle = StyleSpecification | string | null;
+export type UnifiedMapStyle = object | string | null;
 
 export interface UnifiedMapRuntimeOptions {
   style?: UnifiedMapStyle;
@@ -153,12 +147,16 @@ export interface UnifiedMapOptions extends UnifiedMapRuntimeOptions {
   initialView: CameraState;
 }
 
+export interface EngineExtensionMap {
+  readonly [engine: string]: unknown;
+}
+
 export interface SourceDefinition<TOptions extends object = object> {
   id: string;
   kind: SourceKind;
   options: TOptions;
   metadata?: Record<string, unknown>;
-  mapLibreSource?: SourceSpecification;
+  engineExtensions?: EngineExtensionMap;
 }
 
 export interface BaseLayerDefinition<
@@ -184,7 +182,7 @@ export interface DataLayerDefinition<
   filter?: unknown;
   minzoom?: number;
   maxzoom?: number;
-  mapLibreLayer?: LayerSpecification;
+  engineExtensions?: EngineExtensionMap;
 }
 
 export interface SystemLayerDefinition<

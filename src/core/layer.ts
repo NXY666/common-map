@@ -27,11 +27,7 @@ export interface DataLayerOptions<TPaint extends object = object>
   maxzoom?: number;
 }
 
-export interface SystemLayerOptions<
-  TSystemKind extends SystemLayerKind = SystemLayerKind,
-> extends BaseLayerOptions {
-  systemKind: TSystemKind;
-}
+export interface SystemLayerOptions extends BaseLayerOptions {}
 
 export abstract class AbstractLayer<
   TOptions extends BaseLayerOptions = BaseLayerOptions,
@@ -96,17 +92,15 @@ export abstract class AbstractDataLayer<
 }
 
 export abstract class AbstractSystemLayer<
+  TSystemKind extends SystemLayerKind = SystemLayerKind,
   TOptions extends SystemLayerOptions = SystemLayerOptions,
   TLayerHandle = unknown,
 > extends AbstractLayer<
   TOptions,
-  SystemLayerDefinition<TOptions, TOptions["systemKind"]>,
+  SystemLayerDefinition<TOptions, TSystemKind>,
   TLayerHandle
 > {
   public readonly kind = "system" as const;
   public readonly domain = "system" as const;
-
-  public get systemKind(): TOptions["systemKind"] {
-    return this.options.systemKind;
-  }
+  public abstract readonly systemKind: TSystemKind;
 }

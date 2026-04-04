@@ -20,16 +20,26 @@ import {
 	type CameraTransition,
 	type ControlDefinition,
 	describeContainer,
+	type LayerDefinition,
 	type LngLatLike,
 	type LngLatLiteral,
 	type MapMountTarget,
 	type OverlayDefinition,
 	type ScreenPoint,
+	type SourceDefinition,
 	toLngLatLiteral,
 	type UnifiedMapOptions,
 	type UnifiedMapRuntimeOptions,
 	type UnifiedMapStyle,
 } from "@/core/types";
+
+function getMapLibreSourceExtension(definition: SourceDefinition): unknown {
+  return (definition.engineExtensions?.maplibre as { source?: unknown } | undefined)?.source;
+}
+
+function getMapLibreLayerExtension(definition: LayerDefinition): unknown {
+  return (definition.engineExtensions?.maplibre as { layer?: unknown } | undefined)?.layer;
+}
 
 interface PseudoNativeMap {
   engine: string;
@@ -564,9 +574,10 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
     _mapHandle: PseudoNativeMap,
     source: AbstractSource,
   ): PseudoHandles["source"] {
+    const definition = source.toSourceDefinition();
     this.record(
       `[maplibre] map.addSource("${source.id}", ${shortJson(
-        source.toSourceDefinition().mapLibreSource ?? source.toSourceDefinition(),
+        getMapLibreSourceExtension(definition) ?? definition.options,
       )})`,
     );
     return { type: "source", id: source.id };
@@ -595,8 +606,8 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
     const definition = layer.toLayerDefinition();
     this.record(
       `[maplibre] map.addLayer(${shortJson(
-        definition.domain === "data" && definition.mapLibreLayer
-          ? definition.mapLibreLayer
+        definition.domain === "data"
+          ? getMapLibreLayerExtension(definition) ?? definition
           : definition,
       )})`,
     );

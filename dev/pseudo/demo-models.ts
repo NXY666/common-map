@@ -1,7 +1,7 @@
-import type {LayerSpecification, SourceSpecification,} from "maplibre-gl";
+import type {LayerSpecification, SourceSpecification} from "maplibre-gl";
 import {AbstractDataLayer, type DataLayerOptions} from "@/core/layer";
 import {AbstractMap} from "@/core/map";
-import type {DataLayerDefinition, SourceDefinition, UnifiedMapOptions,} from "@/core/types";
+import type {DataLayerDefinition, EngineExtensionMap, SourceDefinition, UnifiedMapOptions,} from "@/core/types";
 import type {
 	AbstractMapAdapter,
 	FullscreenControlOptions,
@@ -19,6 +19,13 @@ import {
 	AbstractSource,
 } from "@/index";
 import type {PseudoHandles} from "./pseudo-adapters";
+
+interface MapLibreEngineExtension {
+  maplibre?: {
+    source?: SourceSpecification;
+    layer?: LayerSpecification;
+  };
+}
 
 type DemoGeometry =
   | {
@@ -67,12 +74,16 @@ export class DemoGeoJsonSource extends AbstractSource<
       id: this.id,
       kind: this.kind,
       options: this.options,
-      mapLibreSource: {
-        type: "geojson",
-        data: this.options.data,
-        cluster: this.options.cluster,
-        tolerance: this.options.tolerance,
-      } as unknown as SourceSpecification,
+      engineExtensions: {
+        maplibre: {
+          source: {
+            type: "geojson",
+            data: this.options.data,
+            cluster: this.options.cluster,
+            tolerance: this.options.tolerance,
+          } as unknown as SourceSpecification,
+        },
+      } satisfies MapLibreEngineExtension as EngineExtensionMap,
     };
   }
 }
@@ -110,14 +121,18 @@ export class DemoLineLayer extends AbstractDataLayer<
       minzoom: this.options.minzoom,
       maxzoom: this.options.maxzoom,
       metadata: this.options.metadata,
-      mapLibreLayer: {
-        id: this.id,
-        type: "line",
-        source: this.options.sourceId,
-        paint: this.options.paint,
-        layout: this.options.layout,
-        filter: this.options.filter as never,
-      } as LayerSpecification,
+      engineExtensions: {
+        maplibre: {
+          layer: {
+            id: this.id,
+            type: "line",
+            source: this.options.sourceId,
+            paint: this.options.paint,
+            layout: this.options.layout,
+            filter: this.options.filter as never,
+          } as LayerSpecification,
+        },
+      } satisfies MapLibreEngineExtension as EngineExtensionMap,
     };
   }
 }

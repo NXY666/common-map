@@ -18,8 +18,8 @@
 - `Source updated/dataChanged -> queueMicrotask -> adapter.updateSource()` 的 source 刷新合并逻辑
 - `AbstractLayer / AbstractDataLayer / AbstractSystemLayer`
 - `CameraState / CameraTransition / SourceDefinition / LayerDefinition / OverlayDefinition / ControlDefinition`
-- `SourceDefinition.mapLibreSource`
-- `DataLayerDefinition.mapLibreLayer`
+- `SourceDefinition.engineExtensions?.maplibre.source`（原 `mapLibreSource`）
+- `DataLayerDefinition.engineExtensions?.maplibre.layer`（原 `mapLibreLayer`）
 - 当前 `MapCapability` 能力集合
 - 当前 `PseudoMapLibreAdapter` 的 capability 标记
 
@@ -47,7 +47,7 @@
 
 一句话总结：
 
-- 当前这套 core 比之前更明确地偏向 MapLibre 了，不只是 `mapLibreSource`、`mapLibreLayer` 这些直通槽位，还包括 `createMap()` 负责初始视角与运行时选项、`setStyle()` 负责运行期样式切换、`viewChanged` 必须由 adapter bridge 回灌这些契约。
+- 当前这套 core 已经把引擎特定字段从核心类型中解耦，MapLibre 特定结构现在通过 `engineExtensions.maplibre` 挂点提供，而不是直接暴露在 `SourceDefinition` 和 `DataLayerDefinition` 里。不过核心模型仍然是参考 MapLibre 设计的，包括 `createMap()` 负责初始视角与运行时选项、`setStyle()` 负责运行期样式切换、`viewChanged` 必须由 adapter bridge 回灌这些契约。
 - `Map` 生命周期、`Source + DataLayer` 分离模型、样式切换、投影换算、GeoJSON 聚合、Marker / Popup、控件，都是 MapLibre 最自然的落点。
 - 真正的错位现在主要集中在四块：
   - `AbstractSystemLayer` 仍然更像统一层的“命名系统层槽位”，不是 MapLibre 原生的一等对象。
@@ -67,10 +67,10 @@
 | 单次视角过渡动画 | 直接实现 | `easeTo()`、`flyTo()`、`panTo()`、`zoomTo()` | `CameraTransition.animate/durationMs/easing` | 当前 `CameraTransition` 只覆盖了基础动画面，但简单动画已经可以直接落地。 |
 | 旋转与倾斜 | 直接实现 | `setBearing()`、`setPitch()` | `MapCapability.camera.bearing`、`MapCapability.camera.pitch` | 这是当前 capability 和 MapLibre 最直连的一组能力。 |
 | 地图运行时样式切换 | 直接实现 | `setStyle(style, options)` | `AbstractMap.patchMapOptions()` / `setStyle()` / `MapCapability.style.swap` | 相比旧版设计，core 现在已经有正式 map 级运行时配置更新入口，不再只是“初始 style”。 |
-| `Source` 独立管理 | 直接实现 | `addSource()`、`getSource()`、`removeSource()` | `AbstractMap.addSource()` / `getSource()` / `removeSource()` / `SourceDefinition.mapLibreSource` | 当前 `removeSource(..., { cascade: true })` 还能直接对齐 source-layer 依赖关系。 |
+| `Source` 独立管理 | 直接实现 | `addSource()`、`getSource()`、`removeSource()` | `AbstractMap.addSource()` / `getSource()` / `removeSource()` / `SourceDefinition.engineExtensions?.maplibre.source` | 当前 `removeSource(..., { cascade: true })` 还能直接对齐 source-layer 依赖关系。 |
 | Source 更新同步链路 | 直接实现 | `GeoJSONSource.setData()`、source 相关 API | `updated/dataChanged -> queueMicrotask -> adapter.updateSource()` | 当前 core 会把 `updated` 和 `dataChanged` 合并成一次 source 刷新，这对 MapLibre 的 source patch 很自然。 |
-| `AbstractDataLayer` 独立管理 | 直接实现 | `addLayer()`、`moveLayer()`、`removeLayer()` | `AbstractMap.addLayer()` / `removeLayer()` / `DataLayerDefinition.mapLibreLayer` | `sourceId / beforeId / layout / paint / filter / minzoom / maxzoom` 与 MapLibre style layer 非常贴近。 |
-| GeoJSON 聚合 | 直接实现 | GeoJSON source 的 `cluster` 能力 | `SourceKind.geojson` / `MapCapability.cluster.geojson` | demo source 已把 `cluster` 放进 `options` 和 `mapLibreSource`。 |
+| `AbstractDataLayer` 独立管理 | 直接实现 | `addLayer()`、`moveLayer()`、`removeLayer()` | `AbstractMap.addLayer()` / `removeLayer()` / `DataLayerDefinition.engineExtensions?.maplibre.layer` | `sourceId / beforeId / layout / paint / filter / minzoom / maxzoom` 与 MapLibre style layer 非常贴近。 |
+| GeoJSON 聚合 | 直接实现 | GeoJSON source 的 `cluster` 能力 | `SourceKind.geojson` / `MapCapability.cluster.geojson` | demo source 已把 `cluster` 放进 `options` 和 `engineExtensions.maplibre.source`。 |
 | 屏幕投影与反投影 | 直接实现 | `project()`、`unproject()` | `AbstractMap.project()` / `unproject()` / `MapCapability.projection.screen` | 这部分与当前统一 API 基本一对一。 |
 | Map 鼠标 / 触摸事件 | 直接实现 | `Map.on(type, listener)` | `events.map-mouse` / `events.map-touch` | 当前 core 已经把 map mouse 和 map touch 分开建模，MapLibre 原生事件面足够直接。 |
 | Layer 鼠标 / 触摸事件 | 直接实现 | `Map.on(type, layerId, listener)` | `events.layer-mouse` / `events.layer-touch` | 需要注意当前 `LayerEventMap` 的 touch 只标准化了 `touchstart / touchend / touchcancel`，没有 `touchmove`。 |
@@ -96,7 +96,7 @@
 | `feature-state` / 要素级状态管理 | 当前架构下做不到标准化接入 | MapLibre 有 `setFeatureState()`、`getFeatureState()`、`removeFeatureState()` | 当前 core 只有实体级 `patchOptions()`，没有 feature id、source-layer、state key 这类统一契约。 |
 | `roll` / 投影切换 / globe / sky / fog | 当前架构下做不到标准化接入 | MapLibre 有 `setRoll()`、`setProjection()`、`setSky()`、`setFog()` 等 | 当前 `CameraState` 只覆盖 `center/zoom/bearing/pitch/bounds/padding`，没有这些更高阶场景参数的正式位置。 |
 | sprite / image / glyph 管线 | 当前架构下做不到标准化接入 | MapLibre 有 `addImage()`、`updateImage()`、`setSprite()`、`setGlyphs()` | 当前统一对象体系里没有 `Image` / `Sprite` / `Glyph` 一等对象。 |
-| 原生 `CustomLayerInterface` 渲染层 | 当前架构下做不到标准化接入 | MapLibre 支持自定义 WebGL 渲染层 | 当前 `DataLayerDefinition.mapLibreLayer` 预留的是普通 `LayerSpecification` 直通槽位，没有正式 custom render hook 契约。 |
+| 原生 `CustomLayerInterface` 渲染层 | 当前架构下做不到标准化接入 | MapLibre 支持自定义 WebGL 渲染层 | 当前 `DataLayerDefinition.engineExtensions?.maplibre.layer` 预留的是普通 `LayerSpecification` 扩展位，没有正式 custom render hook 契约。 |
 | 完整的相机动画参数面 | 当前架构下做不到标准化接入 | MapLibre 的 `easeTo()` / `flyTo()` 还支持 `offset`、`around`、`curve`、`speed` 等 | 当前 `CameraTransition` 只有 `animate / durationMs / easing`，表达力还不够。 |
 
 ## 6. 与当前 capability 设计的一一对应
@@ -108,8 +108,8 @@
 | `camera.bearing` | `native` | 对应 `setBearing()`，并能装进 `CameraState.bearing` |
 | `camera.pitch` | `native` | 对应 `setPitch()`，并能装进 `CameraState.pitch` |
 | `style.swap` | `native` | 当前已经有 `patchMapOptions()` / `setStyle()` 正式入口，MapLibre 可以直接承接 |
-| `source.management` | `native` | `addSource/getSource/removeSource` 与 `SourceDefinition.mapLibreSource` 天然一致 |
-| `layer.management` | `native` | `DataLayerDefinition.mapLibreLayer`、`beforeId`、`sourceId` 与 MapLibre layer 模型天然一致；`system` layer 仍属于 adapter 解释层 |
+| `source.management` | `native` | `addSource/getSource/removeSource` 与 `SourceDefinition.engineExtensions?.maplibre.source` 天然一致 |
+| `layer.management` | `native` | `DataLayerDefinition.engineExtensions?.maplibre.layer`、`beforeId`、`sourceId` 与 MapLibre layer 模型天然一致；`system` layer 仍属于 adapter 解释层 |
 | `overlay.dom` | `native` | `Marker` / `Popup` / DOM overlay 是原生能力 |
 | `overlay.vector` | `native` | capability 表给的是 `native`，但如果坚持走对象式 `AbstractOverlay.polyline/polygon`，真实 adapter 仍常常会桥回 source/layer |
 | `control.custom` | `native` | `IControl` 与 `ControlSlot` 基本一对一 |
@@ -132,7 +132,7 @@
 
 1. 把 `Source + DataLayer` 当成主路径
    - 这是当前 core 与 MapLibre 对齐度最高的部分。
-   - `mapLibreSource` 和 `mapLibreLayer` 已经明确给了 MapLibre 直通位。
+   - `engineExtensions.maplibre.source` 和 `engineExtensions.maplibre.layer` 已经明确给了 MapLibre 扩展位。
 
 2. 把 `Overlay` 收窄给 `Marker / Popup / custom DOM`
    - 线、面、热力图、填充挤出等优先走 `AbstractDataLayer`。
