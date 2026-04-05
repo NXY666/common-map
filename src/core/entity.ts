@@ -1,197 +1,185 @@
 import {
 	type EmptyEventMap,
-	type EntityEventMap,
-	type EventKey,
+	type EntityEvent,
 	type EventMapBase,
 	type EventPayload,
+	type EventType,
 	type LifecycleState,
-	type MapEntityEventMap,
 	type MapEntitySnapshot,
 	TypedEvented,
 } from "./events";
 import {type EntityLifecycleAccess, getManagedMap, hasEntityLifecycleAccess,} from "./internal-lifecycle";
-import {type AdapterEventAccess, hasAdapterEventAccess,} from "./internal-events";
+import {adapterEventEmitterSymbol} from "./internal-event-bridge";
 import type {AbstractMap} from "./map";
 
 export abstract class AbstractMapEntity<
-  TOptions extends object,
-  TNativeHandle = unknown,
-  TExtraEvents extends EventMapBase = EmptyEventMap,
-> extends TypedEvented<EntityEventMap<TOptions, TExtraEvents>> {
-  public readonly id: string;
+	TOptions extends object,
+	TNativeHandle = unknown,
+	TExtraEvents extends EventMapBase = EmptyEventMap,
+> extends TypedEvented<EntityEvent<TOptions, TExtraEvents>> {
+	public readonly id: string;
 
-  protected optionsValue: TOptions;
-  protected stateValue: LifecycleState = "draft";
-  protected mapRef?: AbstractMap;
-  protected nativeHandle?: TNativeHandle;
+	protected optionsValue: TOptions;
 
-  protected constructor(id: string, initialOptions: TOptions) {
-    super();
-    this.id = id;
-    this.optionsValue = initialOptions;
-  }
+	protected stateValue: LifecycleState = "draft";
 
-  protected fire<K extends EventKey<MapEntityEventMap<TOptions>>>(
-    type: K,
-    payload?: EventPayload<MapEntityEventMap<TOptions>, K>,
-  ): this;
-  protected fire<K extends EventKey<EntityEventMap<TOptions, TExtraEvents>>>(
-    type: K,
-    payload?: EventPayload<EntityEventMap<TOptions, TExtraEvents>, K>,
-  ): this;
-  protected override fire<K extends EventKey<EntityEventMap<TOptions, TExtraEvents>>>(
-    type: K,
-    payload?: EventPayload<EntityEventMap<TOptions, TExtraEvents>, K>,
-  ): this {
-    return super.fire(type, payload);
-  }
+	protected mapRef?: AbstractMap;
 
-  public get options(): Readonly<TOptions> {
-    return this.optionsValue;
-  }
+	protected nativeHandle?: TNativeHandle;
 
-  public get state(): LifecycleState {
-    return this.stateValue;
-  }
+	protected constructor(id: string, initialOptions: TOptions) {
+		super();
+		this.id = id;
+		this.optionsValue = initialOptions;
+	}
 
-  public get attachedMap(): AbstractMap | undefined {
-    return this.mapRef;
-  }
+	public get options(): Readonly<TOptions> {
+		return this.optionsValue;
+	}
 
-  public get managingMap(): AbstractMap | undefined {
-    return getManagedMap(this);
-  }
+	public get state(): LifecycleState {
+		return this.stateValue;
+	}
 
-  public getNativeHandle(): TNativeHandle | undefined {
-    return this.nativeHandle;
-  }
+	public get attachedMap(): AbstractMap | undefined {
+		return this.mapRef;
+	}
 
-  public isMounted(): boolean {
-    return this.stateValue === "mounted";
-  }
+	public get managingMap(): AbstractMap | undefined {
+		return getManagedMap(this);
+	}
 
-  public isDisposed(): boolean {
-    return this.stateValue === "disposed";
-  }
+	public getNativeHandle(): TNativeHandle | undefined {
+		return this.nativeHandle;
+	}
 
-  public emitFromAdapter<
-    K extends EventKey<EntityEventMap<TOptions, TExtraEvents>>,
-  >(
-    type: K,
-    payload: EventPayload<EntityEventMap<TOptions, TExtraEvents>, K> | undefined,
-    access: AdapterEventAccess,
-  ): this {
-    if (!hasAdapterEventAccess(access)) {
-      throw new Error(
-        `Entity "${this.id}" interaction events can only be emitted by an adapter bridge.`,
-      );
-    }
+	public isMounted(): boolean {
+		return this.stateValue === "mounted";
+	}
 
-    return this.fire(type, payload);
-  }
+	public isDisposed(): boolean {
+		return this.stateValue === "disposed";
+	}
 
-  public patchOptions(patch: Partial<TOptions>): this {
-    this.ensureMutable();
-    this.optionsValue = {
-      ...this.optionsValue,
-      ...patch,
-    };
+	public [adapterEventEmitterSymbol]<
+		K extends EventType<TExtraEvents>,
+	>(
+		type: K,
+		payload?: EventPayload<TExtraEvents, K>,
+	): this {
+		return super.fire(
+			type as EventType<EntityEvent<TOptions, TExtraEvents>>,
+			payload as
+				| EventPayload<
+				EntityEvent<TOptions, TExtraEvents>,
+				EventType<EntityEvent<TOptions, TExtraEvents>>
+			>
+				| undefined,
+		);
+	}
 
-    this.emitUpdated(patch);
+	public patchOptions(patch: Partial<TOptions>): this {
+		this.ensureMutable();
+		this.optionsValue = {
+			...this.optionsValue,
+			...patch,
+		};
 
-    return this;
-  }
+		this.emitUpdated(patch);
 
-  protected touch(patch: Partial<TOptions> = {}): this {
-    this.ensureMutable();
-    this.emitUpdated(patch);
+		return this;
+	}
 
-    return this;
-  }
+	public attachToMap(
+		map: AbstractMap,
+		nativeHandle: TNativeHandle,
+		access: EntityLifecycleAccess,
+	): this {
+		this.assertLifecycleAccess(access);
+		this.ensureMutable();
 
-  public attachToMap(
-    map: AbstractMap,
-    nativeHandle: TNativeHandle,
-    access: EntityLifecycleAccess,
-  ): this {
-    this.assertLifecycleAccess(access);
-    this.ensureMutable();
+		if (this.managingMap !== map) {
+			throw new Error(
+				`Entity "${this.id}" must be registered on map "${map.id}" before mounting.`,
+			);
+		}
 
-    if (this.managingMap !== map) {
-      throw new Error(
-        `Entity "${this.id}" must be registered on map "${map.id}" before mounting.`,
-      );
-    }
+		if (this.stateValue === "mounted") {
+			throw new Error(`Entity "${this.id}" is already mounted.`);
+		}
 
-    if (this.stateValue === "mounted") {
-      throw new Error(`Entity "${this.id}" is already mounted.`);
-    }
+		this.mapRef = map;
+		this.nativeHandle = nativeHandle;
+		this.stateValue = "mounted";
+		this.fire("mounted", this.snapshot());
+		return this;
+	}
 
-    this.mapRef = map;
-    this.nativeHandle = nativeHandle;
-    this.stateValue = "mounted";
-    this.fire("mounted", this.snapshot());
-    return this;
-  }
+	public detachFromMap(access: EntityLifecycleAccess): this {
+		this.assertLifecycleAccess(access);
 
-  public detachFromMap(access: EntityLifecycleAccess): this {
-    this.assertLifecycleAccess(access);
+		if (this.stateValue !== "mounted") {
+			return this;
+		}
 
-    if (this.stateValue !== "mounted") {
-      return this;
-    }
+		this.stateValue = "draft";
+		this.nativeHandle = undefined;
+		this.mapRef = undefined;
+		this.fire("unmounted", this.snapshot());
+		return this;
+	}
 
-    this.stateValue = "draft";
-    this.nativeHandle = undefined;
-    this.mapRef = undefined;
-    this.fire("unmounted", this.snapshot());
-    return this;
-  }
+	public dispose(): this {
+		if (this.stateValue === "disposed") {
+			return this;
+		}
 
-  public dispose(): this {
-    if (this.stateValue === "disposed") {
-      return this;
-    }
+		const managingMap = this.managingMap;
+		if (managingMap) {
+			throw new Error(
+				`Entity "${this.id}" is still managed by map "${managingMap.id}". Remove it from the map before disposing.`,
+			);
+		}
 
-    const managingMap = this.managingMap;
-    if (managingMap) {
-      throw new Error(
-        `Entity "${this.id}" is still managed by map "${managingMap.id}". Remove it from the map before disposing.`,
-      );
-    }
+		this.nativeHandle = undefined;
+		this.mapRef = undefined;
+		this.stateValue = "disposed";
+		return this;
+	}
 
-    this.nativeHandle = undefined;
-    this.mapRef = undefined;
-    this.stateValue = "disposed";
-    return this;
-  }
+	protected touch(patch: Partial<TOptions> = {}): this {
+		this.ensureMutable();
+		this.emitUpdated(patch);
 
-  protected snapshot(): MapEntitySnapshot<TOptions> {
-    return {
-      id: this.id,
-      state: this.stateValue,
-      options: this.optionsValue,
-    };
-  }
+		return this;
+	}
 
-  protected ensureMutable(): void {
-    if (this.stateValue === "disposed") {
-      throw new Error(`Entity "${this.id}" has been disposed.`);
-    }
-  }
+	protected snapshot(): MapEntitySnapshot<TOptions> {
+		return {
+			id: this.id,
+			state: this.stateValue,
+			options: this.optionsValue,
+		};
+	}
 
-  private emitUpdated(patch: Partial<TOptions>): void {
-    this.fire("updated", {
-      ...this.snapshot(),
-      patch,
-    });
-  }
+	protected ensureMutable(): void {
+		if (this.stateValue === "disposed") {
+			throw new Error(`Entity "${this.id}" has been disposed.`);
+		}
+	}
 
-  private assertLifecycleAccess(access: unknown): void {
-    if (!hasEntityLifecycleAccess(access)) {
-      throw new Error(
-        `Entity "${this.id}" lifecycle is managed by AbstractMap.`,
-      );
-    }
-  }
+	private emitUpdated(patch: Partial<TOptions>): void {
+		this.fire("updated", {
+			...this.snapshot(),
+			patch
+		});
+	}
+
+	private assertLifecycleAccess(access: unknown): void {
+		if (!hasEntityLifecycleAccess(access)) {
+			throw new Error(
+				`Entity "${this.id}" lifecycle is managed by AbstractMap.`,
+			);
+		}
+	}
 }

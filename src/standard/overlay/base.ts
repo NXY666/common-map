@@ -1,92 +1,84 @@
 import type {CapabilityLevel, MapCapability} from "@/core/capability";
 import type {EmptyEventMap, EventMapBase} from "@/core/events";
 import {AbstractOverlay} from "@/core/overlay";
-import type {OverlayDefinition} from "@/core/types";
 import type {StandardObjectMeta} from "@/standard";
 import type {StandardOverlayDefinition, StandardOverlayOptions,} from "./types";
 
-interface StandardOverlayReservedEventMap extends EventMapBase {
-  visibilityChanged: { id: string; visible: boolean };
-  zIndexChanged: { id: string; zIndex: number | undefined };
-}
-
 export abstract class AbstractStandardOverlay<
-  TOptions extends StandardOverlayOptions,
-  TDefinition extends StandardOverlayDefinition,
-  TExtraEvents extends EventMapBase = EmptyEventMap,
-  TOverlayHandle = unknown,
+	TOptions extends StandardOverlayOptions,
+	TDefinition extends StandardOverlayDefinition,
+	TExtraEvents extends EventMapBase = EmptyEventMap,
+	TOverlayHandle = unknown,
 > extends AbstractOverlay<
-  TOptions,
-  Omit<TExtraEvents, keyof StandardOverlayReservedEventMap>,
-  TOverlayHandle
+	TOptions,
+	TDefinition,
+	TExtraEvents,
+	TOverlayHandle
 > {
-  public abstract readonly kind: TDefinition["kind"];
-  public abstract readonly meta: StandardObjectMeta;
+	public abstract readonly kind: TDefinition["kind"];
 
-  public get visible(): boolean {
-    return this.options.visible ?? true;
-  }
+	public abstract readonly meta: StandardObjectMeta;
 
-  public get zIndex(): number | undefined {
-    return this.options.zIndex;
-  }
+	public get visible(): boolean {
+		return this.options.visible ?? true;
+	}
 
-  public get minZoom(): number | undefined {
-    return this.options.minZoom;
-  }
+	public get zIndex(): number | undefined {
+		return this.options.zIndex;
+	}
 
-  public get maxZoom(): number | undefined {
-    return this.options.maxZoom;
-  }
+	public get minZoom(): number | undefined {
+		return this.options.minZoom;
+	}
 
-  public show(): this {
-    return this.setVisibility(true);
-  }
+	public get maxZoom(): number | undefined {
+		return this.options.maxZoom;
+	}
 
-  public hide(): this {
-    return this.setVisibility(false);
-  }
+	public show(): this {
+		return this.setVisibility(true);
+	}
 
-  public toggleVisibility(): this {
-    return this.setVisibility(!this.visible);
-  }
+	public hide(): this {
+		return this.setVisibility(false);
+	}
 
-  public setVisibility(visible: boolean): this {
-    if (visible === this.visible) {
-      return this;
-    }
+	public toggleVisibility(): this {
+		return this.setVisibility(!this.visible);
+	}
 
-    this.patchOptions({ visible } as Partial<TOptions>);
-    this.fire("visibilityChanged", { id: this.id, visible } as never);
-    return this;
-  }
+	public setVisibility(visible: boolean): this {
+		if (visible === this.visible) {
+			return this;
+		}
 
-  public setZIndex(zIndex: number | undefined): this {
-    this.patchOptions({ zIndex } as Partial<TOptions>);
-    this.fire("zIndexChanged", { id: this.id, zIndex } as never);
-    return this;
-  }
+		return this.patchOptions({visible} as Partial<TOptions>);
+	}
 
-  public setMinZoom(minZoom: number | undefined): this {
-    this.patchOptions({ minZoom } as Partial<TOptions>);
-    return this;
-  }
+	public setZIndex(zIndex: number | undefined): this {
+		return this.patchOptions({zIndex} as Partial<TOptions>);
+	}
 
-  public setMaxZoom(maxZoom: number | undefined): this {
-    this.patchOptions({ maxZoom } as Partial<TOptions>);
-    return this;
-  }
+	public setMinZoom(minZoom: number | undefined): this {
+		this.patchOptions({minZoom} as Partial<TOptions>);
+		return this;
+	}
 
-  protected assertCapability(
-    capability: MapCapability,
-    minimum: CapabilityLevel = "emulated",
-  ): void {
-    this.managingMap?.adapter.capabilities.assert(capability, minimum);
-  }
+	public setMaxZoom(maxZoom: number | undefined): this {
+		this.patchOptions({maxZoom} as Partial<TOptions>);
+		return this;
+	}
 
-  public abstract toStandardOverlayDefinition(): TDefinition;
+	public abstract toStandardOverlayDefinition(): TDefinition;
 
-  public override toOverlayDefinition(): OverlayDefinition<TOptions> {
-    return this.toStandardOverlayDefinition() as unknown as OverlayDefinition<TOptions>;
-  }
+	public override toOverlayDefinition(): TDefinition {
+		return this.toStandardOverlayDefinition();
+	}
+
+	protected assertCapability(
+		capability: MapCapability,
+		minimum: CapabilityLevel = "emulated",
+	): void {
+		this.managingMap?.adapter.capabilities.assert(capability, minimum);
+	}
 }

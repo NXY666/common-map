@@ -2,96 +2,69 @@ import type {AbstractLayer} from "./layer";
 import type {AbstractMap} from "./map";
 import type {AbstractControl} from "./control";
 import type {AbstractOverlay} from "./overlay";
+import type {AdapterEventEmitter} from "./internal-event-bridge";
+import {adapterEventEmitterSymbol} from "./internal-event-bridge";
 import type {
-	ControlExtraEventMap,
-	EntityEventMap,
-	EventKey,
+	AppendEvents,
+	EmptyEventMap,
 	EventMapBase,
 	EventPayload,
-	LayerEventMap,
-	MapEventMap,
-	OverlayExtraEventMap,
+	EventType,
+	LayerInteractionEvent,
+	MapAdapterEvent,
+	OverlayInteractionEvent,
 } from "./events";
-
-declare const adapterEventAccessBrand: unique symbol;
-
-export interface AdapterEventAccess {
-  readonly [adapterEventAccessBrand]: true;
-}
+import type {ControlDefinition, OverlayDefinition} from "./types";
 
 export interface MapEventBridge {
-  emit<K extends EventKey<MapEventMap>>(
-    type: K,
-    payload?: EventPayload<MapEventMap, K>,
-  ): void;
-}
-
-const adapterEventAccess = {} as AdapterEventAccess;
-
-export function hasAdapterEventAccess(
-  access: unknown,
-): access is AdapterEventAccess {
-  return access === adapterEventAccess;
+	emit<K extends EventType<MapAdapterEvent>>(
+		type: K,
+		payload?: EventPayload<MapAdapterEvent, K>,
+	): void;
 }
 
 export function createMapEventBridge(map: AbstractMap): MapEventBridge {
-  return {
-    emit: (type, payload) => {
-      map.emitFromAdapter(type, payload, adapterEventAccess);
-    },
-  };
+	return {
+		emit: (type, payload) => {
+			map[adapterEventEmitterSymbol](type, payload);
+		},
+	};
 }
 
-export function emitLayerEvent<K extends EventKey<LayerEventMap>>(
-  layer: AbstractLayer,
-  type: K,
-  payload?: EventPayload<LayerEventMap, K>,
-): void {
-  layer.emitFromAdapter(type, payload, adapterEventAccess);
+export function createLayerEventBridge(
+	layer: AbstractLayer,
+): AdapterEventEmitter<LayerInteractionEvent> {
+	return {
+		emit: (type, payload) => {
+			layer[adapterEventEmitterSymbol](type, payload);
+		},
+	};
 }
 
-export function emitOverlayEvent<
-  TOptions extends object,
-  TExtraEvents extends EventMapBase,
-  TType extends EventKey<
-    EntityEventMap<
-      TOptions,
-      OverlayExtraEventMap<TOptions> & TExtraEvents
-    >
-  >,
+export function createOverlayEventBridge<
+	TOptions extends object,
+	TDefinition extends OverlayDefinition = OverlayDefinition,
+	TExtraEvents extends EventMapBase = EmptyEventMap,
 >(
-  overlay: AbstractOverlay<TOptions, TExtraEvents>,
-  type: TType,
-  payload?: EventPayload<
-    EntityEventMap<
-      TOptions,
-      OverlayExtraEventMap<TOptions> & TExtraEvents
-    >,
-    TType
-  >,
-): void {
-  overlay.emitFromAdapter(type, payload, adapterEventAccess);
+	overlay: AbstractOverlay<TOptions, TDefinition, TExtraEvents>,
+): AdapterEventEmitter<AppendEvents<OverlayInteractionEvent, TExtraEvents>> {
+	return {
+		emit: (type, payload) => {
+			overlay[adapterEventEmitterSymbol](type, payload);
+		},
+	};
 }
 
-export function emitControlEvent<
-  TOptions extends object,
-  TExtraEvents extends EventMapBase,
-  TType extends EventKey<
-    EntityEventMap<
-      TOptions,
-      ControlExtraEventMap<TOptions> & TExtraEvents
-    >
-  >,
+export function createControlEventBridge<
+	TOptions extends object,
+	TDefinition extends ControlDefinition = ControlDefinition,
+	TExtraEvents extends EventMapBase = EventMapBase,
 >(
-  control: AbstractControl<TOptions, TExtraEvents>,
-  type: TType,
-  payload?: EventPayload<
-    EntityEventMap<
-      TOptions,
-      ControlExtraEventMap<TOptions> & TExtraEvents
-    >,
-    TType
-  >,
-): void {
-  control.emitFromAdapter(type, payload, adapterEventAccess);
+	control: AbstractControl<TOptions, TDefinition, TExtraEvents>,
+): AdapterEventEmitter<TExtraEvents> {
+	return {
+		emit: (type, payload) => {
+			control[adapterEventEmitterSymbol](type, payload);
+		},
+	};
 }

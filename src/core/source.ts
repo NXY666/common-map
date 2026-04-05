@@ -1,25 +1,26 @@
 import {AbstractMapEntity} from "./entity";
-import type {SourceExtraEventMap} from "./events";
-import type {SourceDefinition, SourceKind} from "./types";
+import type {SourceDataChangedEvent} from "./events";
+import type {SourceDefinition} from "./types";
 
 export abstract class AbstractSource<
-  TOptions extends object = object,
-  TSourceHandle = unknown,
+	TOptions extends object = object,
+	TDefinition extends SourceDefinition = SourceDefinition,
+	TSourceHandle = unknown,
 > extends AbstractMapEntity<
-  TOptions,
-  TSourceHandle,
-  SourceExtraEventMap<TOptions>
+	TOptions,
+	TSourceHandle,
+	SourceDataChangedEvent<TOptions>
 > {
-  public abstract readonly kind: SourceKind;
+	public abstract readonly kind: TDefinition["kind"];
 
-  public abstract toSourceDefinition(): SourceDefinition<TOptions>;
+	public abstract toSourceDefinition(): TDefinition;
 
-  protected notifyDataChanged(reason: string): this {
-    this.fire("dataChanged", {
-      id: this.id,
-      reason,
-      options: this.options,
-    });
-    return this;
-  }
+	protected notifyDataChanged(reason: string): this {
+		this.fire("dataChanged", {
+			id: this.id,
+			reason,
+			options: this.options,
+		});
+		return this;
+	}
 }

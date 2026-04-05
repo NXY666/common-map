@@ -1399,8 +1399,8 @@ Layer 接入时，首先要看 `definition.domain`：
 - `layout`
 - `paint`
 - `filter`
-- `minzoom`
-- `maxzoom`
+- `minZoom`
+- `maxZoom`
 
 对于 `system` 图层，adapter 通常要处理：
 

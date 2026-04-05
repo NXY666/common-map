@@ -56,6 +56,7 @@ export interface DemoGeoJsonSourceOptions {
 
 export class DemoGeoJsonSource extends AbstractSource<
   DemoGeoJsonSourceOptions,
+  SourceDefinition<"geojson", DemoGeoJsonSourceOptions>,
   PseudoHandles["source"]
 > {
   public readonly kind = "geojson" as const;
@@ -69,7 +70,7 @@ export class DemoGeoJsonSource extends AbstractSource<
     return this.notifyDataChanged("replace-data");
   }
 
-  public toSourceDefinition(): SourceDefinition<DemoGeoJsonSourceOptions> {
+  public toSourceDefinition(): SourceDefinition<"geojson", DemoGeoJsonSourceOptions> {
     return {
       id: this.id,
       kind: this.kind,
@@ -98,6 +99,7 @@ export interface DemoLineLayerOptions extends DataLayerOptions<DemoLinePaint> {
 }
 
 export class DemoLineLayer extends AbstractDataLayer<
+  "line",
   DemoLinePaint,
   DemoLineLayerOptions,
   PseudoHandles["layer"]
@@ -108,7 +110,7 @@ export class DemoLineLayer extends AbstractDataLayer<
     super(id, options);
   }
 
-  public toLayerDefinition(): DataLayerDefinition<DemoLinePaint> {
+  public toLayerDefinition(): DataLayerDefinition<"line", DemoLinePaint> {
     return {
       id: this.id,
       domain: this.domain,
@@ -118,8 +120,8 @@ export class DemoLineLayer extends AbstractDataLayer<
       layout: this.options.layout,
       paint: this.options.paint,
       filter: this.options.filter,
-      minzoom: this.options.minzoom,
-      maxzoom: this.options.maxzoom,
+      minZoom: this.options.minzoom,
+      maxZoom: this.options.maxzoom,
       metadata: this.options.metadata,
       engineExtensions: {
         maplibre: {

@@ -69,7 +69,7 @@
 | 地图运行时样式切换 | 直接实现 | `setStyle(style, options)` | `AbstractMap.patchMapOptions()` / `setStyle()` / `MapCapability.style.swap` | 相比旧版设计，core 现在已经有正式 map 级运行时配置更新入口，不再只是“初始 style”。 |
 | `Source` 独立管理 | 直接实现 | `addSource()`、`getSource()`、`removeSource()` | `AbstractMap.addSource()` / `getSource()` / `removeSource()` / `SourceDefinition.engineExtensions?.maplibre.source` | 当前 `removeSource(..., { cascade: true })` 还能直接对齐 source-layer 依赖关系。 |
 | Source 更新同步链路 | 直接实现 | `GeoJSONSource.setData()`、source 相关 API | `updated/dataChanged -> queueMicrotask -> adapter.updateSource()` | 当前 core 会把 `updated` 和 `dataChanged` 合并成一次 source 刷新，这对 MapLibre 的 source patch 很自然。 |
-| `AbstractDataLayer` 独立管理 | 直接实现 | `addLayer()`、`moveLayer()`、`removeLayer()` | `AbstractMap.addLayer()` / `removeLayer()` / `DataLayerDefinition.engineExtensions?.maplibre.layer` | `sourceId / beforeId / layout / paint / filter / minzoom / maxzoom` 与 MapLibre style layer 非常贴近。 |
+| `AbstractDataLayer` 独立管理 | 直接实现 | `addLayer()`、`moveLayer()`、`removeLayer()` | `AbstractMap.addLayer()` / `removeLayer()` / `DataLayerDefinition.engineExtensions?.maplibre.layer` | `sourceId / beforeId / layout / paint / filter / minZoom / maxZoom` 与 MapLibre style layer 非常贴近。 |
 | GeoJSON 聚合 | 直接实现 | GeoJSON source 的 `cluster` 能力 | `SourceKind.geojson` / `MapCapability.cluster.geojson` | demo source 已把 `cluster` 放进 `options` 和 `engineExtensions.maplibre.source`。 |
 | 屏幕投影与反投影 | 直接实现 | `project()`、`unproject()` | `AbstractMap.project()` / `unproject()` / `MapCapability.projection.screen` | 这部分与当前统一 API 基本一对一。 |
 | Map 鼠标 / 触摸事件 | 直接实现 | `Map.on(type, listener)` | `events.map-mouse` / `events.map-touch` | 当前 core 已经把 map mouse 和 map touch 分开建模，MapLibre 原生事件面足够直接。 |

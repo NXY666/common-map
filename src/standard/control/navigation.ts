@@ -1,63 +1,64 @@
-import type {EmptyEventMap} from "@/core/events";
+import type {EmptyEventUnion} from "@/core/events";
 import {AbstractStandardControl} from "./base";
 import type {NavigationControlDefinition, NavigationControlOptions,} from "./types";
 
 export abstract class AbstractNavigationControl<
-  TOptions extends NavigationControlOptions = NavigationControlOptions,
-  TControlHandle = unknown,
+	TOptions extends NavigationControlOptions = NavigationControlOptions,
+	TControlHandle = unknown,
 > extends AbstractStandardControl<
-  TOptions,
-  NavigationControlDefinition,
-  EmptyEventMap,
-  TControlHandle
+	TOptions,
+	NavigationControlDefinition,
+	EmptyEventUnion,
+	TControlHandle
 > {
-  public readonly kind = "navigation" as const;
-  public readonly meta = {
-    renderLayer: "control-dom",
-    interactionLayer: "dom",
-    description:
-      "一个负责缩放、罗盘和视角复位的地图操作控件集合，是默认导航控件。",
-  } as const;
+	public readonly kind = "navigation" as const;
 
-  public setShowZoom(showZoom: boolean): this {
-    this.patchOptions({ showZoom } as Partial<TOptions>);
-    return this;
-  }
+	public readonly meta = {
+		renderLayer: "control-dom",
+		interactionLayer: "dom",
+		description:
+			"一个负责缩放、罗盘和视角复位的地图操作控件集合，是默认导航控件。",
+	} as const;
 
-  public showZoomButtons(): this {
-    return this.setShowZoom(true);
-  }
+	public setShowZoom(showZoom: boolean): this {
+		this.patchOptions({showZoom} as Partial<TOptions>);
+		return this;
+	}
 
-  public hideZoomButtons(): this {
-    return this.setShowZoom(false);
-  }
+	public showZoomButtons(): this {
+		return this.setShowZoom(true);
+	}
 
-  public setShowCompass(showCompass: boolean): this {
-    this.patchOptions({ showCompass } as Partial<TOptions>);
-    return this;
-  }
+	public hideZoomButtons(): this {
+		return this.setShowZoom(false);
+	}
 
-  public showCompass(): this {
-    return this.setShowCompass(true);
-  }
+	public setShowCompass(showCompass: boolean): this {
+		this.patchOptions({showCompass} as Partial<TOptions>);
+		return this;
+	}
 
-  public hideCompass(): this {
-    return this.setShowCompass(false);
-  }
+	public showCompass(): this {
+		return this.setShowCompass(true);
+	}
 
-  public setVisualizePitch(visualizePitch: boolean): this {
-    this.patchOptions({ visualizePitch } as Partial<TOptions>);
-    return this;
-  }
+	public hideCompass(): this {
+		return this.setShowCompass(false);
+	}
 
-  public toStandardControlDefinition(): NavigationControlDefinition {
-    return {
-      id: this.id,
-      kind: this.kind,
-      position: this.position,
-      visible: this.visible,
-      options: this.options,
-      metadata: this.options.metadata,
-    };
-  }
+	public setVisualizePitch(visualizePitch: boolean): this {
+		this.patchOptions({visualizePitch} as Partial<TOptions>);
+		return this;
+	}
+
+	public toStandardControlDefinition(): NavigationControlDefinition {
+		return {
+			id: this.id,
+			kind: this.kind,
+			position: this.position,
+			visible: this.visible,
+			options: this.options,
+			metadata: this.options.metadata,
+		};
+	}
 }

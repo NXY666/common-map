@@ -1,23 +1,26 @@
 import {AbstractMapEntity} from "./entity";
-import type {EmptyEventMap, EventMapBase, OverlayExtraEventMap,} from "./events";
-import type {OverlayDefinition, OverlayKind} from "./types";
+import type {AppendEvents, EmptyEventMap, EventMapBase, OverlayInteractionEvent,} from "./events";
+import type {OverlayDefinition} from "./types";
 
 export interface OverlayOptions {
-  visible?: boolean;
-  zIndex?: number;
-  metadata?: Record<string, unknown>;
+	visible?: boolean;
+
+	zIndex?: number;
+
+	metadata?: Record<string, unknown>;
 }
 
 export abstract class AbstractOverlay<
-  TOptions extends OverlayOptions = OverlayOptions,
-  TExtraEvents extends EventMapBase = EmptyEventMap,
-  TOverlayHandle = unknown,
+	TOptions extends OverlayOptions = OverlayOptions,
+	TDefinition extends OverlayDefinition = OverlayDefinition,
+	TExtraEvents extends EventMapBase = EmptyEventMap,
+	TOverlayHandle = unknown,
 > extends AbstractMapEntity<
-  TOptions,
-  TOverlayHandle,
-  OverlayExtraEventMap<TOptions> & TExtraEvents
+	TOptions,
+	TOverlayHandle,
+	AppendEvents<OverlayInteractionEvent, TExtraEvents>
 > {
-  public abstract readonly kind: OverlayKind;
+	public abstract readonly kind: TDefinition["kind"];
 
-  public abstract toOverlayDefinition(): OverlayDefinition<TOptions>;
+	public abstract toOverlayDefinition(): TDefinition;
 }

@@ -1,138 +1,129 @@
 import {MAP_CAPABILITY_KEYS} from "@/core/capability";
+import type {EmptyEventUnion} from "@/core/events";
 import type {Alignment} from "@/core/types";
 import {AbstractAnchoredOverlay} from "./anchored";
 import {AbstractPopupOverlay} from "./popup";
-import type {
-	MarkerOverlayDefinition,
-	MarkerOverlayEventMap,
-	MarkerOverlayOptions,
-	MarkerVisual,
-	PopupOverlayOptions,
-} from "./types";
+import type {MarkerOverlayDefinition, MarkerOverlayOptions, MarkerVisual, PopupOverlayOptions,} from "./types";
 
 export abstract class AbstractMarkerOverlay<
-  TOptions extends MarkerOverlayOptions = MarkerOverlayOptions,
-  TOverlayHandle = unknown,
+	TOptions extends MarkerOverlayOptions = MarkerOverlayOptions,
+	TOverlayHandle = unknown,
 > extends AbstractAnchoredOverlay<
-  TOptions,
-  MarkerOverlayDefinition,
-  MarkerOverlayEventMap,
-  TOverlayHandle
+	TOptions,
+	MarkerOverlayDefinition,
+	EmptyEventUnion,
+	TOverlayHandle
 > {
-  public readonly kind = "marker" as const;
-  public readonly meta = {
-    renderLayer: "dom-overlay",
-    interactionLayer: "dom",
-    description:
-      "一个有唯一地理锚点的点对象，主要用于少量、高交互、可拖拽、可绑定 popup 的点标注。",
-  } as const;
+	public readonly kind = "marker" as const;
 
-  protected popupRef?: AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle>;
+	public readonly meta = {
+		renderLayer: "dom-overlay",
+		interactionLayer: "dom",
+		description:
+			"一个有唯一地理锚点的点对象，主要用于少量、高交互、可拖拽、可绑定 popup 的点标注。",
+	} as const;
 
-  public get draggable(): boolean {
-    return this.options.draggable ?? false;
-  }
+	protected popupRef?: AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle>;
 
-  public get popup(): AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle> | undefined {
-    return this.popupRef;
-  }
+	public get draggable(): boolean {
+		return this.options.draggable ?? false;
+	}
 
-  public setVisual(visual: MarkerVisual | undefined): this {
-    this.patchOptions({ visual } as Partial<TOptions>);
-    return this;
-  }
+	public get popup(): AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle> | undefined {
+		return this.popupRef;
+	}
 
-  public setDraggable(draggable: boolean): this {
-    if (draggable) {
-      this.assertCapability(MAP_CAPABILITY_KEYS.overlay.markerDrag);
-    }
+	public setVisual(visual: MarkerVisual | undefined): this {
+		this.patchOptions({visual} as Partial<TOptions>);
+		return this;
+	}
 
-    this.patchOptions({ draggable } as Partial<TOptions>);
-    return this;
-  }
+	public setDraggable(draggable: boolean): this {
+		if (draggable) {
+			this.assertCapability(MAP_CAPABILITY_KEYS.overlay.markerDrag);
+		}
 
-  public enableDragging(): this {
-    return this.setDraggable(true);
-  }
+		this.patchOptions({draggable} as Partial<TOptions>);
+		return this;
+	}
 
-  public disableDragging(): this {
-    return this.setDraggable(false);
-  }
+	public enableDragging(): this {
+		return this.setDraggable(true);
+	}
 
-  public setRotation(rotation: number | undefined): this {
-    this.patchOptions({ rotation } as Partial<TOptions>);
-    return this;
-  }
+	public disableDragging(): this {
+		return this.setDraggable(false);
+	}
 
-  public setRotationAlignment(alignment: Alignment | undefined): this {
-    this.patchOptions({ rotationAlignment: alignment } as Partial<TOptions>);
-    return this;
-  }
+	public setRotation(rotation: number | undefined): this {
+		this.patchOptions({rotation} as Partial<TOptions>);
+		return this;
+	}
 
-  public setPitchAlignment(alignment: Alignment | undefined): this {
-    this.patchOptions({ pitchAlignment: alignment } as Partial<TOptions>);
-    return this;
-  }
+	public setRotationAlignment(alignment: Alignment | undefined): this {
+		this.patchOptions({rotationAlignment: alignment} as Partial<TOptions>);
+		return this;
+	}
 
-  public bindPopup(popup: AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle> | null): this {
-    const nextPopup = popup ?? undefined;
-    const currentPopup = this.popupRef;
+	public setPitchAlignment(alignment: Alignment | undefined): this {
+		this.patchOptions({pitchAlignment: alignment} as Partial<TOptions>);
+		return this;
+	}
 
-    if (currentPopup === nextPopup) {
-      return this;
-    }
+	public bindPopup(popup: AbstractPopupOverlay<PopupOverlayOptions, TOverlayHandle> | null): this {
+		const nextPopup = popup ?? undefined;
+		const currentPopup = this.popupRef;
 
-    if (nextPopup) {
-      this.assertCapability(MAP_CAPABILITY_KEYS.overlay.markerBindPopup);
+		if (currentPopup === nextPopup) {
+			return this;
+		}
 
-      const markerMap = this.managingMap;
-      const popupMap = nextPopup.managingMap;
+		if (nextPopup) {
+			this.assertCapability(MAP_CAPABILITY_KEYS.overlay.markerBindPopup);
 
-      if (markerMap && popupMap && markerMap !== popupMap) {
-        throw new Error(
-          `Marker "${this.id}" cannot bind popup "${nextPopup.id}" from another map.`,
-        );
-      }
-    }
+			const markerMap = this.managingMap;
+			const popupMap = nextPopup.managingMap;
 
-    currentPopup?.close();
-    this.popupRef = nextPopup;
-    this.touch();
-    this.fire("popupBindingChanged", {
-      id: this.id,
-      popupId: nextPopup?.id,
-    });
-    return this;
-  }
+			if (markerMap && popupMap && markerMap !== popupMap) {
+				throw new Error(
+					`Marker "${this.id}" cannot bind popup "${nextPopup.id}" from another map.`,
+				);
+			}
+		}
 
-  public unbindPopup(): this {
-    return this.bindPopup(null);
-  }
+		currentPopup?.close();
+		this.popupRef = nextPopup;
+		return this.touch();
+	}
 
-  public openPopup(): this {
-    this.popupRef?.open();
-    return this;
-  }
+	public unbindPopup(): this {
+		return this.bindPopup(null);
+	}
 
-  public closePopup(): this {
-    this.popupRef?.close();
-    return this;
-  }
+	public openPopup(): this {
+		this.popupRef?.open();
+		return this;
+	}
 
-  public togglePopup(): this {
-    this.popupRef?.toggle();
-    return this;
-  }
+	public closePopup(): this {
+		this.popupRef?.close();
+		return this;
+	}
 
-  public toStandardOverlayDefinition(): MarkerOverlayDefinition {
-    return {
-      id: this.id,
-      kind: this.kind,
-      visible: this.visible,
-      zIndex: this.zIndex,
-      options: this.options,
-      metadata: this.options.metadata,
-      popupId: this.popupRef?.id,
-    };
-  }
+	public togglePopup(): this {
+		this.popupRef?.toggle();
+		return this;
+	}
+
+	public toStandardOverlayDefinition(): MarkerOverlayDefinition {
+		return {
+			id: this.id,
+			kind: this.kind,
+			visible: this.visible,
+			zIndex: this.zIndex,
+			options: this.options,
+			metadata: this.options.metadata,
+			popupId: this.popupRef?.id,
+		};
+	}
 }

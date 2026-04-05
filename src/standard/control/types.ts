@@ -1,102 +1,95 @@
-import type {EventMapBase} from "@/core/events";
+import type {EventVariants} from "@/core/events";
 import type {ControlOptions} from "@/core/control";
-import type {
-	ControlDefinition,
-	ControlKind,
-	ControlSlot,
-	LengthUnit,
-	LngLatLiteral,
-	PixelOffsetLike,
-} from "@/core/types";
+import type {ControlDefinition, ControlKind, LengthUnit, LngLatLiteral,} from "@/core/types";
 
 export type StandardControlKind = Extract<
-  ControlKind,
-  "navigation" | "scale" | "fullscreen" | "geolocate" | "attribution"
+	ControlKind,
+	"navigation" | "scale" | "fullscreen" | "geolocate" | "attribution"
 >;
 
 export interface StandardControlOptions extends ControlOptions {
-  position?: ControlSlot;
-  offset?: PixelOffsetLike;
-  visible?: boolean;
-  metadata?: Record<string, unknown>;
 }
 
 export interface NavigationControlOptions extends StandardControlOptions {
-  showZoom?: boolean;
-  showCompass?: boolean;
-  visualizePitch?: boolean;
+	showZoom?: boolean;
+
+	showCompass?: boolean;
+
+	visualizePitch?: boolean;
 }
 
 export interface ScaleControlOptions extends StandardControlOptions {
-  unit?: LengthUnit;
-  maxWidth?: number;
+	unit?: LengthUnit;
+
+	maxWidth?: number;
 }
 
 export interface FullscreenControlOptions extends StandardControlOptions {
-  active?: boolean;
-  container?: HTMLElement;
-  pseudo?: boolean;
+	active?: boolean;
+
+	container?: HTMLElement;
+
+	pseudo?: boolean;
 }
 
 export interface GeolocateControlOptions extends StandardControlOptions {
-  tracking?: boolean;
-  locateRequestVersion?: number;
-  showUserLocation?: boolean;
-  showAccuracyCircle?: boolean;
-  positionOptions?: PositionOptions;
-  fitBoundsMaxZoom?: number;
+	tracking?: boolean;
+
+	locateRequestVersion?: number;
+
+	showUserLocation?: boolean;
+
+	showAccuracyCircle?: boolean;
+
+	positionOptions?: PositionOptions;
+
+	fitBoundsMaxZoom?: number;
 }
 
 export interface AttributionControlOptions extends StandardControlOptions {
-  compact?: boolean;
-  customAttribution?: string | readonly string[];
-}
+	compact?: boolean;
 
-export interface BaseStandardControlDefinition<
-  TKind extends StandardControlKind,
-  TOptions extends object,
-> extends ControlDefinition<TOptions> {
-  kind: TKind;
+	customAttribution?: string | readonly string[];
 }
 
 export interface NavigationControlDefinition
-  extends BaseStandardControlDefinition<"navigation", NavigationControlOptions> {}
+	extends ControlDefinition<"navigation", NavigationControlOptions> {
+}
 
 export interface ScaleControlDefinition
-  extends BaseStandardControlDefinition<"scale", ScaleControlOptions> {}
+	extends ControlDefinition<"scale", ScaleControlOptions> {
+}
 
 export interface FullscreenControlDefinition
-  extends BaseStandardControlDefinition<"fullscreen", FullscreenControlOptions> {}
+	extends ControlDefinition<"fullscreen", FullscreenControlOptions> {
+}
 
 export interface GeolocateControlDefinition
-  extends BaseStandardControlDefinition<"geolocate", GeolocateControlOptions> {}
+	extends ControlDefinition<"geolocate", GeolocateControlOptions> {
+}
 
 export interface AttributionControlDefinition
-  extends BaseStandardControlDefinition<"attribution", AttributionControlOptions> {}
+	extends ControlDefinition<"attribution", AttributionControlOptions> {
+}
 
 export type StandardControlDefinition =
-  | NavigationControlDefinition
-  | ScaleControlDefinition
-  | FullscreenControlDefinition
-  | GeolocateControlDefinition
-  | AttributionControlDefinition;
+	| NavigationControlDefinition
+	| ScaleControlDefinition
+	| FullscreenControlDefinition
+	| GeolocateControlDefinition
+	| AttributionControlDefinition;
 
-export interface FullscreenControlEventMap extends EventMapBase {
-  activeChanged: { id: string; active: boolean };
-  entered: { id: string };
-  exited: { id: string };
-}
+export type FullscreenControlEvent = EventVariants<"entered" | "exited", { id: string }>;
 
-export interface GeolocateControlEventMap extends EventMapBase {
-  trackingChanged: { id: string; tracking: boolean };
-  geolocate: {
-    id: string;
-    coordinate: LngLatLiteral;
-    accuracyMeters?: number;
-  };
-  error: {
-    id: string;
-    code?: number;
-    message: string;
-  };
-}
+export type GeolocateControlEvent = {
+	geolocate: {
+		id: string;
+		coordinate: LngLatLiteral;
+		accuracyMeters?: number;
+	};
+	error: {
+		id: string;
+		code?: number;
+		message: string;
+	};
+};
