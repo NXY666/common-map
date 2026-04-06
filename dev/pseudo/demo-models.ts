@@ -120,8 +120,8 @@ export class DemoLineLayer extends AbstractDataLayer<
       layout: this.options.layout,
       paint: this.options.paint,
       filter: this.options.filter,
-      minZoom: this.options.minzoom,
-      maxZoom: this.options.maxzoom,
+		minZoom: this.options.minZoom,
+		maxZoom: this.options.maxZoom,
       metadata: this.options.metadata,
       engineExtensions: {
         maplibre: {

@@ -30,9 +30,9 @@ export interface DataLayerOptions<TPaint extends object = object>
 
 	filter?: unknown;
 
-	minzoom?: number;
+	minZoom?: number;
 
-	maxzoom?: number;
+	maxZoom?: number;
 }
 
 export interface SystemLayerOptions extends BaseLayerOptions {
