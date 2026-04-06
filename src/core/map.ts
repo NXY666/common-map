@@ -1,4 +1,5 @@
 import {
+	type EmptyEventMap,
 	type EventMapBase,
 	type EventPayload,
 	type EventType,
@@ -65,18 +66,46 @@ type MapLayerEntity<TLayerHandle> = AbstractLayer<
 	LayerDefinition,
 	TLayerHandle
 >;
-type MapOverlayEntity<TOverlayHandle> = AbstractOverlay<
-	OverlayOptions,
-	OverlayDefinition,
-	EventMapBase,
-	TOverlayHandle
->;
-type MapControlEntity<TControlHandle> = AbstractControl<
-	ControlOptions,
-	ControlDefinition,
-	EventMapBase,
-	TControlHandle
->;
+
+interface MapOverlayLifecycle<TOverlayHandle = unknown> {
+	readonly id: string;
+	isDisposed(): boolean;
+	isMounted(): boolean;
+	attachToMap(
+		map: AbstractMap,
+		nativeHandle: TOverlayHandle,
+		access: unknown,
+	): unknown;
+	detachFromMap(access: unknown): unknown;
+	getNativeHandle(): TOverlayHandle;
+}
+
+interface MapOverlayCapability {
+	toOverlayDefinition(): OverlayDefinition;
+	on(event: "updated", listener: () => void): Subscription;
+}
+
+type MapOverlayEntity<TOverlayHandle> = MapOverlayLifecycle<TOverlayHandle> & MapOverlayCapability;
+
+interface MapControlLifecycle<TControlHandle = unknown> {
+	readonly id: string;
+	isDisposed(): boolean;
+	isMounted(): boolean;
+	attachToMap(
+		map: AbstractMap,
+		nativeHandle: TControlHandle,
+		access: unknown,
+	): unknown;
+	detachFromMap(access: unknown): unknown;
+	getNativeHandle(): TControlHandle;
+}
+
+interface MapControlCapability {
+	toControlDefinition(): ControlDefinition;
+	on(event: "updated", listener: () => void): Subscription;
+}
+
+type MapControlEntity<TControlHandle> = MapControlLifecycle<TControlHandle> & MapControlCapability;
 
 export abstract class AbstractMap<
 	H extends AdapterHandles = AdapterHandles,
@@ -537,7 +566,14 @@ export abstract class AbstractMap<
 		return this;
 	}
 
-	public addOverlay<TOverlay extends MapOverlayEntity<H["overlay"]>>(overlay: TOverlay): TOverlay {
+	public addOverlay<
+		TOverlay extends AbstractOverlay<
+			OverlayOptions,
+			OverlayDefinition,
+			EmptyEventMap,
+			H["overlay"]
+		>
+	>(overlay: TOverlay): TOverlay {
 		if (this.isDestroyed) {
 			console.warn(`Map has been destroyed and cannot addOverlay.`);
 			return overlay;
@@ -558,7 +594,14 @@ export abstract class AbstractMap<
 		return overlay;
 	}
 
-	public getOverlay<TOverlay extends MapOverlayEntity<H["overlay"]>>(
+	public getOverlay<
+		TOverlay extends AbstractOverlay<
+			OverlayOptions,
+			OverlayDefinition,
+			EmptyEventMap,
+			H["overlay"]
+		>
+	>(
 		overlayId: string,
 	): TOverlay | undefined {
 		return this.overlays.get(overlayId) as TOverlay | undefined;
@@ -584,7 +627,14 @@ export abstract class AbstractMap<
 		return this;
 	}
 
-	public addControl<TControl extends MapControlEntity<H["control"]>>(control: TControl): TControl {
+	public addControl<
+		TControl extends AbstractControl<
+			ControlOptions,
+			ControlDefinition,
+			EmptyEventMap,
+			H["control"]
+		>
+	>(control: TControl): TControl {
 		if (this.isDestroyed) {
 			console.warn(`Map has been destroyed and cannot addControl.`);
 			return control;
@@ -605,7 +655,14 @@ export abstract class AbstractMap<
 		return control;
 	}
 
-	public getControl<TControl extends MapControlEntity<H["control"]>>(
+	public getControl<
+		TControl extends AbstractControl<
+			ControlOptions,
+			ControlDefinition,
+			EmptyEventMap,
+			H["control"]
+		>
+	>(
 		controlId: string,
 	): TControl | undefined {
 		return this.controls.get(controlId) as TControl | undefined;

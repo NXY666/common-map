@@ -18,8 +18,15 @@ import type {
 	UnifiedMapRuntimeOptions,
 } from "./types";
 
-type AdapterOverlayEntity = AbstractOverlay<OverlayOptions, OverlayDefinition, EventMapBase>;
-type AdapterControlEntity = AbstractControl<ControlOptions, ControlDefinition, EventMapBase>;
+export interface AdapterOverlayEntity {
+	readonly id: string;
+	toOverlayDefinition(): OverlayDefinition;
+}
+
+export interface AdapterControlEntity {
+	readonly id: string;
+	toControlDefinition(): ControlDefinition;
+}
 
 export interface AdapterHandles {
 	map: unknown;

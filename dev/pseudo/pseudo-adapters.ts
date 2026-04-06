@@ -3,18 +3,27 @@ import type {
 	AbstractOverlay,
 	AbstractSource,
 	StandardControlDefinition,
-	StandardOverlayDefinition
+	StandardOverlayDefinition,
+	PopupOverlayEvent,
+	FullscreenControlEvent,
+	GeolocateControlEvent,
 } from "@/index";
 import {
-	AbstractFullscreenControl,
-	AbstractGeolocateControl,
 	AbstractMapAdapter,
-	AbstractPopupOverlay,
+	type AdapterOverlayEntity,
+	type AdapterControlEntity,
 	type MapCapability,
 	StaticCapabilityProfile
 } from "@/index";
 import {createControlEventBridge, createOverlayEventBridge, type MapEventBridge,} from "@/core/internal-events";
 import type {AbstractLayer} from "@/core/layer";
+import {
+	type AppendEvents,
+	type EventMapBase,
+	type EventPayload,
+	type EventType,
+	type OverlayInteractionEvent,
+} from "@/core/events";
 import {
 	type CameraState,
 	type CameraTransition,
@@ -32,6 +41,25 @@ import {
 	type UnifiedMapRuntimeOptions,
 	type UnifiedMapStyle,
 } from "@/core/types";
+import {adapterEventEmitterSymbol} from "@/core/internal-event-bridge";
+
+type OverlayBridgeEntity<TExtraEvents extends EventMapBase> = AdapterOverlayEntity & {
+	[adapterEventEmitterSymbol]<
+		K extends EventType<AppendEvents<OverlayInteractionEvent, TExtraEvents>>
+	>(
+		type: K,
+		payload?: EventPayload<AppendEvents<OverlayInteractionEvent, TExtraEvents>, K>,
+	): unknown;
+};
+
+type ControlBridgeEntity<TExtraEvents extends EventMapBase> = AdapterControlEntity & {
+	[adapterEventEmitterSymbol]<
+		K extends EventType<TExtraEvents>
+	>(
+		type: K,
+		payload?: EventPayload<TExtraEvents, K>,
+	): unknown;
+};
 
 function getMapLibreSourceExtension(definition: SourceDefinition): unknown {
 	return (definition.engineExtensions?.maplibre as { source?: unknown } | undefined)?.source;
@@ -435,17 +463,29 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter<PseudoHandles> {
 		return runtime;
 	}
 
-	protected syncOverlayRuntimeState(overlay: AbstractOverlay): void {
-		if (!(overlay instanceof AbstractPopupOverlay)) {
+	// 类型守卫：popup overlay，要求具备 bridge helper 所需的事件发射能力
+	private isPopupOverlay(overlay: AdapterOverlayEntity): overlay is OverlayBridgeEntity<PopupOverlayEvent> {
+		const definition = overlay.toOverlayDefinition();
+		return (
+			definition.kind === "popup" &&
+			adapterEventEmitterSymbol in overlay
+		);
+	}
+	
+	protected syncOverlayRuntimeState(overlay: AdapterOverlayEntity): void {
+		if (!this.isPopupOverlay(overlay)) {
 			return;
 		}
 
-		const eventBridge = createOverlayEventBridge(overlay);
+		const definition = overlay.toOverlayDefinition();
+		const openState = (definition.options as { open?: boolean }).open ?? false;
+		
+		const eventBridge = createOverlayEventBridge<PopupOverlayEvent>(overlay);
 
 		this.syncObservedBooleanState(
 			this.popupOpenStates,
 			overlay.id,
-			overlay.openState,
+			openState,
 			() => {
 				eventBridge.emit("opened", {
 					id: overlay.id,
@@ -463,17 +503,38 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter<PseudoHandles> {
 		this.popupOpenStates.delete(overlayId);
 	}
 
+	// 类型守卫：fullscreen control，要求具备 bridge helper 所需的事件发射能力
+	private isFullscreenControl(control: AdapterControlEntity): control is ControlBridgeEntity<FullscreenControlEvent> {
+		const definition = control.toControlDefinition();
+		return (
+			definition.kind === "fullscreen" &&
+			adapterEventEmitterSymbol in control
+		);
+	}
+	
+	// 类型守卫：geolocate control，要求具备 bridge helper 所需的事件发射能力
+	private isGeolocateControl(control: AdapterControlEntity): control is ControlBridgeEntity<GeolocateControlEvent> {
+		const definition = control.toControlDefinition();
+		return (
+			definition.kind === "geolocate" &&
+			adapterEventEmitterSymbol in control
+		);
+	}
+	
 	protected syncControlRuntimeState(
 		mapHandle: PseudoNativeMap,
-		control: AbstractControl,
+		control: AdapterControlEntity,
 	): void {
-		if (control instanceof AbstractFullscreenControl) {
-			const eventBridge = createControlEventBridge(control);
+		if (this.isFullscreenControl(control)) {
+			const definition = control.toControlDefinition();
+			const active = (definition.options as { active?: boolean }).active ?? false;
+			
+			const eventBridge = createControlEventBridge<FullscreenControlEvent>(control);
 
 			this.syncObservedBooleanState(
 				this.fullscreenActiveStates,
 				control.id,
-				control.active,
+				active,
 				() => {
 					eventBridge.emit("entered", {
 						id: control.id,
@@ -489,7 +550,7 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter<PseudoHandles> {
 			return;
 		}
 
-		if (control instanceof AbstractGeolocateControl) {
+		if (this.isGeolocateControl(control)) {
 			this.syncGeolocateRuntimeState(mapHandle, control);
 		}
 	}
@@ -532,11 +593,14 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter<PseudoHandles> {
 
 	private syncGeolocateRuntimeState(
 		mapHandle: PseudoNativeMap,
-		control: AbstractGeolocateControl,
+		control: ControlBridgeEntity<GeolocateControlEvent>,
 	): void {
+		const definition = control.toControlDefinition();
+		const options = definition.options as { tracking?: boolean; locateRequestVersion?: number; positionOptions?: { timeout?: number } };
+		
 		const currentState = {
-			tracking: control.tracking,
-			locateRequestVersion: control.options.locateRequestVersion ?? 0,
+			tracking: options.tracking ?? false,
+			locateRequestVersion: options.locateRequestVersion ?? 0,
 		};
 
 		const previousState = this.geolocateRuntimeStates.get(control.id) ?? {
@@ -553,9 +617,9 @@ abstract class BasePseudoAdapter extends AbstractMapAdapter<PseudoHandles> {
 			return;
 		}
 
-		const eventBridge = createControlEventBridge(control);
+		const eventBridge = createControlEventBridge<GeolocateControlEvent>(control);
 
-		const timeout = control.options.positionOptions?.timeout;
+		const timeout = options.positionOptions?.timeout;
 		if (timeout === 0) {
 			eventBridge.emit("error", {
 				id: control.id,
@@ -645,7 +709,7 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
 
 	public override mountOverlay(
 		_mapHandle: PseudoNativeMap,
-		overlay: AbstractOverlay,
+		overlay: AdapterOverlayEntity,
 	): PseudoHandles["overlay"] {
 		const definition = overlay.toOverlayDefinition();
 		this.record(
@@ -657,7 +721,7 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
 
 	public override updateOverlay(
 		_mapHandle: PseudoNativeMap,
-		overlay: AbstractOverlay,
+		overlay: AdapterOverlayEntity,
 		_overlayHandle: PseudoHandles["overlay"],
 	): void {
 		const definition = overlay.toOverlayDefinition();
@@ -669,7 +733,7 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
 
 	public override unmountOverlay(
 		_mapHandle: PseudoNativeMap,
-		overlay: AbstractOverlay,
+		overlay: AdapterOverlayEntity,
 		_overlayHandle: PseudoHandles["overlay"],
 	): void {
 		this.record(`[maplibre] unmountOverlay("${overlay.id}")`);
@@ -678,7 +742,7 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
 
 	public override mountControl(
 		_mapHandle: PseudoNativeMap,
-		control: AbstractControl,
+		control: AdapterControlEntity,
 	): PseudoHandles["control"] {
 		const definition = control.toControlDefinition();
 		this.record(
@@ -690,7 +754,7 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
 
 	public override updateControl(
 		_mapHandle: PseudoNativeMap,
-		control: AbstractControl,
+		control: AdapterControlEntity,
 		_controlHandle: PseudoHandles["control"],
 	): void {
 		const definition = control.toControlDefinition();
@@ -702,7 +766,7 @@ export class PseudoMapLibreAdapter extends BasePseudoAdapter {
 
 	public override unmountControl(
 		_mapHandle: PseudoNativeMap,
-		control: AbstractControl,
+		control: AdapterControlEntity,
 		_controlHandle: PseudoHandles["control"],
 	): void {
 		this.record(`[maplibre] map.removeControl("${control.id}")`);
@@ -925,7 +989,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
 
 	public override mountOverlay(
 		_mapHandle: PseudoNativeMap,
-		overlay: AbstractOverlay,
+		overlay: AdapterOverlayEntity,
 	): PseudoHandles["overlay"] {
 		const definition = overlay.toOverlayDefinition();
 		this.record(
@@ -937,7 +1001,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
 
 	public override updateOverlay(
 		_mapHandle: PseudoNativeMap,
-		overlay: AbstractOverlay,
+		overlay: AdapterOverlayEntity,
 		_overlayHandle: PseudoHandles["overlay"],
 	): void {
 		const definition = overlay.toOverlayDefinition();
@@ -949,7 +1013,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
 
 	public override unmountOverlay(
 		_mapHandle: PseudoNativeMap,
-		overlay: AbstractOverlay,
+		overlay: AdapterOverlayEntity,
 		_overlayHandle: PseudoHandles["overlay"],
 	): void {
 		this.record(`[bmapgl] map.removeOverlay("${overlay.id}")`);
@@ -958,7 +1022,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
 
 	public override mountControl(
 		_mapHandle: PseudoNativeMap,
-		control: AbstractControl,
+		control: AdapterControlEntity,
 	): PseudoHandles["control"] {
 		const definition = control.toControlDefinition();
 		this.record(
@@ -970,7 +1034,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
 
 	public override updateControl(
 		_mapHandle: PseudoNativeMap,
-		control: AbstractControl,
+		control: AdapterControlEntity,
 		_controlHandle: PseudoHandles["control"],
 	): void {
 		const definition = control.toControlDefinition();
@@ -982,7 +1046,7 @@ export class PseudoBMapGLAdapter extends BasePseudoAdapter {
 
 	public override unmountControl(
 		_mapHandle: PseudoNativeMap,
-		control: AbstractControl,
+		control: AdapterControlEntity,
 		_controlHandle: PseudoHandles["control"],
 	): void {
 		this.record(`[bmapgl] map.removeControl("${control.id}")`);

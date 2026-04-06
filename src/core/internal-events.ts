@@ -1,7 +1,5 @@
 import type {AbstractLayer} from "./layer";
 import type {AbstractMap} from "./map";
-import type {AbstractControl} from "./control";
-import type {AbstractOverlay} from "./overlay";
 import type {AdapterEventEmitter} from "./internal-event-bridge";
 import {adapterEventEmitterSymbol} from "./internal-event-bridge";
 import type {
@@ -14,7 +12,24 @@ import type {
 	MapAdapterEvent,
 	OverlayInteractionEvent,
 } from "./events";
-import type {ControlDefinition, OverlayDefinition} from "./types";
+
+interface OverlayBridgeTarget<TExtraEvents extends EventMapBase> {
+	[adapterEventEmitterSymbol]<
+		K extends EventType<AppendEvents<OverlayInteractionEvent, TExtraEvents>>
+	>(
+		type: K,
+		payload?: EventPayload<AppendEvents<OverlayInteractionEvent, TExtraEvents>, K>,
+	): unknown;
+}
+
+interface ControlBridgeTarget<TExtraEvents extends EventMapBase> {
+	[adapterEventEmitterSymbol]<
+		K extends EventType<TExtraEvents>
+	>(
+		type: K,
+		payload?: EventPayload<TExtraEvents, K>,
+	): unknown;
+}
 
 export interface MapEventBridge {
 	emit<K extends EventType<MapAdapterEvent>>(
@@ -41,12 +56,8 @@ export function createLayerEventBridge(
 	};
 }
 
-export function createOverlayEventBridge<
-	TOptions extends object,
-	TDefinition extends OverlayDefinition = OverlayDefinition,
-	TExtraEvents extends EventMapBase = EmptyEventMap,
->(
-	overlay: AbstractOverlay<TOptions, TDefinition, TExtraEvents>,
+export function createOverlayEventBridge<TExtraEvents extends EventMapBase = EmptyEventMap>(
+	overlay: OverlayBridgeTarget<TExtraEvents>,
 ): AdapterEventEmitter<AppendEvents<OverlayInteractionEvent, TExtraEvents>> {
 	return {
 		emit: (type, payload) => {
@@ -55,12 +66,8 @@ export function createOverlayEventBridge<
 	};
 }
 
-export function createControlEventBridge<
-	TOptions extends object,
-	TDefinition extends ControlDefinition = ControlDefinition,
-	TExtraEvents extends EventMapBase = EventMapBase,
->(
-	control: AbstractControl<TOptions, TDefinition, TExtraEvents>,
+export function createControlEventBridge<TExtraEvents extends EventMapBase = EventMapBase>(
+	control: ControlBridgeTarget<TExtraEvents>,
 ): AdapterEventEmitter<TExtraEvents> {
 	return {
 		emit: (type, payload) => {
