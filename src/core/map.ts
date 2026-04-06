@@ -1,6 +1,5 @@
 import {
 	type EmptyEventMap,
-	type EventMapBase,
 	type EventPayload,
 	type EventType,
 	type MapAdapterEvent,
@@ -472,10 +471,10 @@ export abstract class AbstractMap<
 		return source;
 	}
 
-	public getSource<TSource extends MapSourceEntity<H["source"]>>(
+	public getSource(
 		sourceId: string,
-	): TSource | undefined {
-		return this.sources.get(sourceId) as TSource | undefined;
+	): MapSourceEntity<H["source"]> | undefined {
+		return this.sources.get(sourceId);
 	}
 
 	public removeSource(
@@ -540,10 +539,10 @@ export abstract class AbstractMap<
 		return layer;
 	}
 
-	public getLayer<TLayer extends MapLayerEntity<H["layer"]>>(
+	public getLayer(
 		layerId: string,
-	): TLayer | undefined {
-		return this.layers.get(layerId) as TLayer | undefined;
+	): MapLayerEntity<H["layer"]> | undefined {
+		return this.layers.get(layerId);
 	}
 
 	public removeLayer(layerId: string): this {
@@ -594,17 +593,10 @@ export abstract class AbstractMap<
 		return overlay;
 	}
 
-	public getOverlay<
-		TOverlay extends AbstractOverlay<
-			OverlayOptions,
-			OverlayDefinition,
-			EmptyEventMap,
-			H["overlay"]
-		>
-	>(
+	public getOverlay(
 		overlayId: string,
-	): TOverlay | undefined {
-		return this.overlays.get(overlayId) as TOverlay | undefined;
+	): MapOverlayEntity<H["overlay"]> | undefined {
+		return this.overlays.get(overlayId);
 	}
 
 	public removeOverlay(overlayId: string): this {
@@ -655,17 +647,10 @@ export abstract class AbstractMap<
 		return control;
 	}
 
-	public getControl<
-		TControl extends AbstractControl<
-			ControlOptions,
-			ControlDefinition,
-			EmptyEventMap,
-			H["control"]
-		>
-	>(
+	public getControl(
 		controlId: string,
-	): TControl | undefined {
-		return this.controls.get(controlId) as TControl | undefined;
+	): MapControlEntity<H["control"]> | undefined {
+		return this.controls.get(controlId);
 	}
 
 	public removeControl(controlId: string): this {

@@ -116,6 +116,17 @@ async function buildMapScenario(
   map.addControl(control);
   map.addControl(fullscreen);
   map.addControl(geolocate);
+
+	const registeredSource = map.getSource("route-source");
+	const registeredLayer = map.getLayer("route-line");
+	const registeredOverlay = map.getOverlay("arrival-marker");
+	const registeredControl = map.getControl("nav");
+
+	registeredSource?.getNativeHandle();
+	registeredLayer?.setVisibility(true);
+	registeredOverlay?.toOverlayDefinition();
+	registeredControl?.toControlDefinition();
+
   await map.load();
   map.mount();
 
