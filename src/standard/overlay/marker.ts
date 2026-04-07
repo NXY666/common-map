@@ -34,7 +34,7 @@ export abstract class AbstractMarkerOverlay<
 	}
 
 	public setVisual(visual: MarkerVisual | undefined): this {
-		this.patchOptions({visual} as Partial<TOptions>);
+		this.setOptions("visual", visual);
 		return this;
 	}
 
@@ -43,7 +43,7 @@ export abstract class AbstractMarkerOverlay<
 			this.assertCapability(MAP_CAPABILITY_KEYS.overlay.markerDrag);
 		}
 
-		this.patchOptions({draggable} as Partial<TOptions>);
+		this.setOptions("draggable", draggable);
 		return this;
 	}
 
@@ -56,17 +56,17 @@ export abstract class AbstractMarkerOverlay<
 	}
 
 	public setRotation(rotation: number | undefined): this {
-		this.patchOptions({rotation} as Partial<TOptions>);
+		this.setOptions("rotation", rotation);
 		return this;
 	}
 
 	public setRotationAlignment(alignment: Alignment | undefined): this {
-		this.patchOptions({rotationAlignment: alignment} as Partial<TOptions>);
+		this.setOptions("rotationAlignment", alignment);
 		return this;
 	}
 
 	public setPitchAlignment(alignment: Alignment | undefined): this {
-		this.patchOptions({pitchAlignment: alignment} as Partial<TOptions>);
+		this.setOptions("pitchAlignment", alignment);
 		return this;
 	}
 

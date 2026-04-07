@@ -21,12 +21,10 @@ export abstract class AbstractPolylineOverlay<
 	} as const;
 
 	public setStyle(style: Partial<PolylineStyle>): this {
-		this.patchOptions({
-			style: {
-				...this.options.style,
-				...style,
-			},
-		} as Partial<TOptions>);
+		this.setOptions("style", {
+			...this.options.style,
+			...style,
+		});
 		return this;
 	}
 

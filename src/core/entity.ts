@@ -15,7 +15,7 @@ import type {AbstractMap} from "./map";
 export abstract class AbstractMapEntity<
 	TOptions extends object,
 	TNativeHandle = unknown,
-	TExtraEvents extends EventMapBase = EmptyEventMap,
+	TExtraEvents extends EventMapBase = EmptyEventMap
 > extends TypedEvented<EntityEvent<TOptions, TExtraEvents>> {
 	public readonly id: string;
 
@@ -78,15 +78,21 @@ export abstract class AbstractMapEntity<
 		);
 	}
 
-	public patchOptions(patch: Partial<TOptions>): this {
+	protected setOptions<TKey extends keyof TOptions>(
+		key: TKey,
+		value: TOptions[TKey],
+	): this {
 		this.ensureMutable();
-		this.optionsValue = {
-			...this.optionsValue,
-			...patch,
+
+		const patch: object = {
+			[key]: value,
 		};
 
-		this.emitUpdated(patch);
-
+		this.optionsValue = {
+			...this.optionsValue,
+			[key]: value,
+		} as TOptions;
+		this.emitUpdated(patch as Partial<TOptions>);
 		return this;
 	}
 

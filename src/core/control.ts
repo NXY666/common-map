@@ -16,7 +16,7 @@ export abstract class AbstractControl<
 	TOptions extends ControlOptions = ControlOptions,
 	TDefinition extends ControlDefinition = ControlDefinition,
 	TExtraEvents extends EventMapBase = EmptyEventMap,
-	TControlHandle = unknown,
+	TControlHandle = unknown
 > extends AbstractMapEntity<
 	TOptions,
 	TControlHandle,

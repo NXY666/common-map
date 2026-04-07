@@ -64,11 +64,11 @@ export abstract class AbstractLayer<
 	}
 
 	public setVisibility(visible: boolean): this {
-		return this.patchOptions({visible} as Partial<TOptions>);
+		return this.setOptions("visible", visible);
 	}
 
 	public setZIndex(zIndex: number | undefined): this {
-		return this.patchOptions({zIndex} as Partial<TOptions>);
+		return this.setOptions("zIndex", zIndex);
 	}
 
 	public abstract toLayerDefinition(): TDefinition;
@@ -78,7 +78,7 @@ export abstract class AbstractDataLayer<
 	TKind extends DataLayerKind = DataLayerKind,
 	TPaint extends object = object,
 	TOptions extends DataLayerOptions<TPaint> = DataLayerOptions<TPaint>,
-	TLayerHandle = unknown,
+	TLayerHandle = unknown
 > extends AbstractLayer<
 	TOptions,
 	DataLayerDefinition<TKind, TPaint>,

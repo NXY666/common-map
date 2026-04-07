@@ -36,13 +36,11 @@ export interface GeolocateControlOptions extends StandardControlOptions {
 	tracking?: boolean;
 
 	locateRequestVersion?: number;
-
 	showUserLocation?: boolean;
 
 	showAccuracyCircle?: boolean;
 
 	positionOptions?: PositionOptions;
-
 	fitBoundsMaxZoom?: number;
 }
 

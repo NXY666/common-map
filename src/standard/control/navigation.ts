@@ -21,7 +21,7 @@ export abstract class AbstractNavigationControl<
 	} as const;
 
 	public setShowZoom(showZoom: boolean): this {
-		this.patchOptions({showZoom} as Partial<TOptions>);
+		this.setOptions("showZoom", showZoom);
 		return this;
 	}
 
@@ -34,7 +34,7 @@ export abstract class AbstractNavigationControl<
 	}
 
 	public setShowCompass(showCompass: boolean): this {
-		this.patchOptions({showCompass} as Partial<TOptions>);
+		this.setOptions("showCompass", showCompass);
 		return this;
 	}
 
@@ -47,7 +47,7 @@ export abstract class AbstractNavigationControl<
 	}
 
 	public setVisualizePitch(visualizePitch: boolean): this {
-		this.patchOptions({visualizePitch} as Partial<TOptions>);
+		this.setOptions("visualizePitch", visualizePitch);
 		return this;
 	}
 

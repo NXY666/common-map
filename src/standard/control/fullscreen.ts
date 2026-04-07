@@ -52,7 +52,7 @@ export abstract class AbstractFullscreenControl<
 			return this;
 		}
 
-		return this.patchOptions({active} as Partial<TOptions>);
+		return this.setOptions("active", active);
 	}
 
 	public enter(): this {

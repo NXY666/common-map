@@ -21,12 +21,10 @@ export abstract class AbstractPolygonOverlay<
 	} as const;
 
 	public setStyle(style: Partial<PolygonStyle>): this {
-		this.patchOptions({
-			style: {
-				...this.options.style,
-				...style,
-			},
-		} as Partial<TOptions>);
+		this.setOptions("style", {
+			...this.options.style,
+			...style,
+		});
 		return this;
 	}
 

@@ -22,14 +22,14 @@ export abstract class AbstractAttributionControl<
 	} as const;
 
 	public setCompact(compact: boolean): this {
-		this.patchOptions({compact} as Partial<TOptions>);
+		this.setOptions("compact", compact);
 		return this;
 	}
 
 	public setCustomAttribution(
 		customAttribution: string | readonly string[] | undefined,
 	): this {
-		this.patchOptions({customAttribution} as Partial<TOptions>);
+		this.setOptions("customAttribution", customAttribution);
 		return this;
 	}
 

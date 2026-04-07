@@ -66,7 +66,7 @@ export class DemoGeoJsonSource extends AbstractSource<
   }
 
   public setData(data: DemoFeatureCollection): this {
-    this.patchOptions({ data });
+	  this.setOptions("data", data);
     return this.notifyDataChanged("replace-data");
   }
 

@@ -44,7 +44,7 @@ export abstract class AbstractPopupOverlay<
 	}
 
 	public setContent(content: PopupContentLike | undefined): this {
-		this.patchOptions({content} as Partial<TOptions>);
+		this.setOptions("content", content);
 		return this;
 	}
 
@@ -69,7 +69,7 @@ export abstract class AbstractPopupOverlay<
 			return this;
 		}
 
-		return this.patchOptions({open} as Partial<TOptions>);
+		return this.setOptions("open", open);
 	}
 
 	public open(): this {
@@ -89,27 +89,27 @@ export abstract class AbstractPopupOverlay<
 	}
 
 	public setMaxWidth(maxWidth: string | number | undefined): this {
-		this.patchOptions({maxWidth} as Partial<TOptions>);
+		this.setOptions("maxWidth", maxWidth);
 		return this;
 	}
 
 	public setCloseButtonEnabled(closeButton: boolean): this {
-		this.patchOptions({closeButton} as Partial<TOptions>);
+		this.setOptions("closeButton", closeButton);
 		return this;
 	}
 
 	public setCloseOnClick(closeOnClick: boolean): this {
-		this.patchOptions({closeOnClick} as Partial<TOptions>);
+		this.setOptions("closeOnClick", closeOnClick);
 		return this;
 	}
 
 	public setCloseOnMove(closeOnMove: boolean): this {
-		this.patchOptions({closeOnMove} as Partial<TOptions>);
+		this.setOptions("closeOnMove", closeOnMove);
 		return this;
 	}
 
 	public setFocusAfterOpen(focusAfterOpen: boolean): this {
-		this.patchOptions({focusAfterOpen} as Partial<TOptions>);
+		this.setOptions("focusAfterOpen", focusAfterOpen);
 		return this;
 	}
 

@@ -52,20 +52,20 @@ export abstract class AbstractStandardOverlay<
 			return this;
 		}
 
-		return this.patchOptions({visible} as Partial<TOptions>);
+		return this.setOptions("visible", visible);
 	}
 
 	public setZIndex(zIndex: number | undefined): this {
-		return this.patchOptions({zIndex} as Partial<TOptions>);
+		return this.setOptions("zIndex", zIndex);
 	}
 
 	public setMinZoom(minZoom: number | undefined): this {
-		this.patchOptions({minZoom} as Partial<TOptions>);
+		this.setOptions("minZoom", minZoom);
 		return this;
 	}
 
 	public setMaxZoom(maxZoom: number | undefined): this {
-		this.patchOptions({maxZoom} as Partial<TOptions>);
+		this.setOptions("maxZoom", maxZoom);
 		return this;
 	}
 

@@ -10,7 +10,7 @@ export abstract class AbstractStandardControl<
 	TOptions extends StandardControlOptions,
 	TDefinition extends StandardControlDefinition,
 	TExtraEvents extends EventMapBase = EmptyEventMap,
-	TControlHandle = unknown,
+	TControlHandle = unknown
 > extends AbstractControl<
 	TOptions,
 	TDefinition,
@@ -50,11 +50,11 @@ export abstract class AbstractStandardControl<
 			return this;
 		}
 
-		return this.patchOptions({visible} as Partial<TOptions>);
+		return this.setOptions("visible", visible);
 	}
 
 	public setPosition(position: ControlSlot): this {
-		return this.patchOptions({position} as Partial<TOptions>);
+		return this.setOptions("position", position);
 	}
 
 	public setOffset(offset: PixelOffsetLike): this {
@@ -65,7 +65,7 @@ export abstract class AbstractStandardControl<
 			return this;
 		}
 
-		return this.patchOptions({offset} as Partial<TOptions>);
+		return this.setOptions("offset", offset);
 	}
 
 	public abstract toStandardControlDefinition(): TDefinition;

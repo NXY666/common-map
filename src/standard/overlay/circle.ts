@@ -35,16 +35,14 @@ export abstract class AbstractCircleOverlay<
 			return this;
 		}
 
-		return this.patchOptions({radius} as Partial<TOptions>);
+		return this.setOptions("radius", radius);
 	}
 
 	public setStyle(style: Partial<CircleStyle>): this {
-		this.patchOptions({
-			style: {
-				...this.options.style,
-				...style,
-			},
-		} as Partial<TOptions>);
+		this.setOptions("style", {
+			...this.options.style,
+			...style,
+		});
 		return this;
 	}
 

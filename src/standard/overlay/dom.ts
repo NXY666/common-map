@@ -21,12 +21,12 @@ export abstract class AbstractDomOverlay<
 	} as const;
 
 	public setContent(content: DomContentLike): this {
-		this.patchOptions({content} as Partial<TOptions>);
+		this.setOptions("content", content);
 		return this;
 	}
 
 	public setClassName(className: string | undefined): this {
-		this.patchOptions({className} as Partial<TOptions>);
+		this.setOptions("className", className);
 		return this;
 	}
 
@@ -46,12 +46,12 @@ export abstract class AbstractDomOverlay<
 	}
 
 	public setInteractive(interactive: boolean): this {
-		this.patchOptions({interactive} as Partial<TOptions>);
+		this.setOptions("interactive", interactive);
 		return this;
 	}
 
 	public setRotation(rotation: number | undefined): this {
-		this.patchOptions({rotation} as Partial<TOptions>);
+		this.setOptions("rotation", rotation);
 		return this;
 	}
 

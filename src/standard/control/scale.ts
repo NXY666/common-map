@@ -21,7 +21,7 @@ export abstract class AbstractScaleControl<
 	} as const;
 
 	public setUnit(unit: LengthUnit): this {
-		this.patchOptions({unit} as Partial<TOptions>);
+		this.setOptions("unit", unit);
 		return this;
 	}
 
@@ -38,7 +38,7 @@ export abstract class AbstractScaleControl<
 	}
 
 	public setMaxWidth(maxWidth: number | undefined): this {
-		this.patchOptions({maxWidth} as Partial<TOptions>);
+		this.setOptions("maxWidth", maxWidth);
 		return this;
 	}
 

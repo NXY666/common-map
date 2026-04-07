@@ -33,7 +33,7 @@ export abstract class AbstractGeolocateControl<
 			return this;
 		}
 
-		return this.patchOptions({tracking} as Partial<TOptions>);
+		return this.setOptions("tracking", tracking);
 	}
 
 	public startTracking(): this {
@@ -50,27 +50,27 @@ export abstract class AbstractGeolocateControl<
 
 	public locateOnce(): this {
 		const locateRequestVersion = (this.options.locateRequestVersion ?? 0) + 1;
-		this.patchOptions({locateRequestVersion} as Partial<TOptions>);
+		this.setOptions("locateRequestVersion", locateRequestVersion);
 		return this;
 	}
 
 	public setShowUserLocation(showUserLocation: boolean): this {
-		this.patchOptions({showUserLocation} as Partial<TOptions>);
+		this.setOptions("showUserLocation", showUserLocation);
 		return this;
 	}
 
 	public setShowAccuracyCircle(showAccuracyCircle: boolean): this {
-		this.patchOptions({showAccuracyCircle} as Partial<TOptions>);
+		this.setOptions("showAccuracyCircle", showAccuracyCircle);
 		return this;
 	}
 
 	public setPositionOptions(positionOptions: PositionOptions | undefined): this {
-		this.patchOptions({positionOptions} as Partial<TOptions>);
+		this.setOptions("positionOptions", positionOptions);
 		return this;
 	}
 
 	public setFitBoundsMaxZoom(fitBoundsMaxZoom: number | undefined): this {
-		this.patchOptions({fitBoundsMaxZoom} as Partial<TOptions>);
+		this.setOptions("fitBoundsMaxZoom", fitBoundsMaxZoom);
 		return this;
 	}
 

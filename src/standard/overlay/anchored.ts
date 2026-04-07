@@ -28,16 +28,16 @@ export abstract class AbstractAnchoredOverlay<
 	}
 
 	public setCoordinate(coordinate: LngLatLike): this {
-		return this.patchOptions({coordinate} as Partial<TOptions>);
+		return this.setOptions("coordinate", coordinate);
 	}
 
 	public setAnchor(anchor: OverlayAnchor): this {
-		this.patchOptions({anchor} as Partial<TOptions>);
+		this.setOptions("anchor", anchor);
 		return this;
 	}
 
 	public setOffset(offset: PixelOffsetLike): this {
-		this.patchOptions({offset} as Partial<TOptions>);
+		this.setOptions("offset", offset);
 		return this;
 	}
 

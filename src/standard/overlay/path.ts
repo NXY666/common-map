@@ -19,7 +19,7 @@ export abstract class AbstractPathOverlay<
 	}
 
 	public setCoordinates(coordinates: readonly LngLatLike[]): this {
-		return this.patchOptions({coordinates} as Partial<TOptions>);
+		return this.setOptions("coordinates", coordinates);
 	}
 
 	public appendCoordinate(coordinate: LngLatLike): this {
