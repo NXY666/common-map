@@ -33,6 +33,10 @@ export abstract class AbstractFullscreenControl<
 		this.on("exited", () => {
 			this.actualActiveStateValue = false;
 		});
+
+		this.on("unmounted", () => {
+			this.actualActiveStateValue = false;
+		});
 	}
 
 	public get active(): boolean {

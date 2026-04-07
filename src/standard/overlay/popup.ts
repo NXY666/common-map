@@ -33,6 +33,10 @@ export abstract class AbstractPopupOverlay<
 		this.on("closed", () => {
 			this.actualOpenStateValue = false;
 		});
+
+		this.on("unmounted", () => {
+			this.actualOpenStateValue = false;
+		});
 	}
 
 	public get openState(): boolean {
