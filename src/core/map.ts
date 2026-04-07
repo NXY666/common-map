@@ -28,7 +28,7 @@ import type {
 	UnifiedMapRuntimeOptions,
 	UnifiedMapStyle,
 } from "./types";
-import {bindManagedEntity, mountManagedEntity, releaseManagedEntity, unmountManagedEntity,} from "./internal-lifecycle";
+import {bindManagedEntity, mountManagedEntity, releaseManagedEntity, unmountManagedEntity, type EntityLifecycleAccess,} from "./internal-lifecycle";
 import {adapterEventEmitterSymbol} from "./internal-event-bridge";
 import {createMapEventBridge} from "./internal-events";
 
@@ -73,9 +73,9 @@ interface MapOverlayLifecycle<TOverlayHandle = unknown> {
 	attachToMap(
 		map: AbstractMap,
 		nativeHandle: TOverlayHandle,
-		access: unknown,
-	): unknown;
-	detachFromMap(access: unknown): unknown;
+		access: EntityLifecycleAccess,
+	): void;
+	detachFromMap(access: EntityLifecycleAccess): void;
 	getNativeHandle(): TOverlayHandle;
 }
 
@@ -93,9 +93,9 @@ interface MapControlLifecycle<TControlHandle = unknown> {
 	attachToMap(
 		map: AbstractMap,
 		nativeHandle: TControlHandle,
-		access: unknown,
-	): unknown;
-	detachFromMap(access: unknown): unknown;
+		access: EntityLifecycleAccess,
+	): void;
+	detachFromMap(access: EntityLifecycleAccess): void;
 	getNativeHandle(): TControlHandle;
 }
 
@@ -105,6 +105,20 @@ interface MapControlCapability {
 }
 
 type MapControlEntity<TControlHandle> = MapControlLifecycle<TControlHandle> & MapControlCapability;
+
+type ManagedEntityKind = "source" | "layer" | "overlay" | "control";
+
+interface MapManagedEntityLifecycle<TNativeHandle = unknown> {
+	readonly id: string;
+	isDisposed(): boolean;
+	isMounted(): boolean;
+	attachToMap(
+		map: AbstractMap,
+		nativeHandle: TNativeHandle,
+		access: EntityLifecycleAccess,
+	): void;
+	detachFromMap(access: EntityLifecycleAccess): void;
+}
 
 export abstract class AbstractMap<
 	H extends AdapterHandles = AdapterHandles,
@@ -231,37 +245,18 @@ export abstract class AbstractMap<
 		this.nativeMap = nativeMap;
 		this.stateValue = "mounted";
 
-		for (const source of this.sources.values()) {
-			try {
-				this.materializeSource(source);
-			} catch (error) {
-				this.fireError("mount", `Failed to mount source "${source.id}".`, error, "source", source.id);
-			}
-		}
-
-		for (const layer of this.layers.values()) {
-			try {
-				this.materializeLayer(layer);
-			} catch (error) {
-				this.fireError("mount", `Failed to mount layer "${layer.id}".`, error, "layer", layer.id);
-			}
-		}
-
-		for (const overlay of this.overlays.values()) {
-			try {
-				this.materializeOverlay(overlay);
-			} catch (error) {
-				this.fireError("mount", `Failed to mount overlay "${overlay.id}".`, error, "overlay", overlay.id);
-			}
-		}
-
-		for (const control of this.controls.values()) {
-			try {
-				this.materializeControl(control);
-			} catch (error) {
-				this.fireError("mount", `Failed to mount control "${control.id}".`, error, "control", control.id);
-			}
-		}
+		this.mountManagedCollection(this.sources, "source", (entity) => {
+			this.materializeSource(entity);
+		});
+		this.mountManagedCollection(this.layers, "layer", (entity) => {
+			this.materializeLayer(entity);
+		});
+		this.mountManagedCollection(this.overlays, "overlay", (entity) => {
+			this.materializeOverlay(entity);
+		});
+		this.mountManagedCollection(this.controls, "control", (entity) => {
+			this.materializeControl(entity);
+		});
 
 		this.fire("mounted", {
 			mapId: this.id,
@@ -284,21 +279,18 @@ export abstract class AbstractMap<
 
 		const operation = "unmount" as const;
 
-		for (const control of Array.from(this.controls.values()).reverse()) {
-			this.dematerializeControl(control, operation);
-		}
-
-		for (const overlay of Array.from(this.overlays.values()).reverse()) {
-			this.dematerializeOverlay(overlay, operation);
-		}
-
-		for (const layer of Array.from(this.layers.values()).reverse()) {
-			this.dematerializeLayer(layer, operation);
-		}
-
-		for (const source of Array.from(this.sources.values()).reverse()) {
-			this.dematerializeSource(source, operation);
-		}
+		this.unmountManagedCollection(this.controls, operation, (entity, op) => {
+			this.dematerializeControl(entity, op);
+		});
+		this.unmountManagedCollection(this.overlays, operation, (entity, op) => {
+			this.dematerializeOverlay(entity, op);
+		});
+		this.unmountManagedCollection(this.layers, operation, (entity, op) => {
+			this.dematerializeLayer(entity, op);
+		});
+		this.unmountManagedCollection(this.sources, operation, (entity, op) => {
+			this.dematerializeSource(entity, op);
+		});
 
 		this.destroyNativeMap(nativeMap, operation);
 		this.nativeMap = undefined;
@@ -321,45 +313,10 @@ export abstract class AbstractMap<
 			this.unmount();
 		}
 
-		for (const control of Array.from(this.controls.values()).reverse()) {
-			try {
-				releaseManagedEntity(control, this);
-			} catch (error) {
-				this.fireError("destroy", `Failed to release control "${control.id}" during destroy.`, error, "control", control.id);
-			}
-			this.unbindEntity(control.id);
-		}
-		this.controls.clear();
-
-		for (const overlay of Array.from(this.overlays.values()).reverse()) {
-			try {
-				releaseManagedEntity(overlay, this);
-			} catch (error) {
-				this.fireError("destroy", `Failed to release overlay "${overlay.id}" during destroy.`, error, "overlay", overlay.id);
-			}
-			this.unbindEntity(overlay.id);
-		}
-		this.overlays.clear();
-
-		for (const layer of Array.from(this.layers.values()).reverse()) {
-			try {
-				releaseManagedEntity(layer, this);
-			} catch (error) {
-				this.fireError("destroy", `Failed to release layer "${layer.id}" during destroy.`, error, "layer", layer.id);
-			}
-			this.unbindEntity(layer.id);
-		}
-		this.layers.clear();
-
-		for (const source of Array.from(this.sources.values()).reverse()) {
-			try {
-				releaseManagedEntity(source, this);
-			} catch (error) {
-				this.fireError("destroy", `Failed to release source "${source.id}" during destroy.`, error, "source", source.id);
-			}
-			this.unbindEntity(source.id);
-		}
-		this.sources.clear();
+		this.releaseManagedCollection(this.controls, "control");
+		this.releaseManagedCollection(this.overlays, "overlay");
+		this.releaseManagedCollection(this.layers, "layer");
+		this.releaseManagedCollection(this.sources, "source");
 
 		this.stateValue = "destroyed";
 
@@ -459,16 +416,11 @@ export abstract class AbstractMap<
 			console.warn(`Map has been destroyed and cannot addSource.`);
 			return source;
 		}
-		this.ensureUnique(this.sources, source.id, "source");
-		bindManagedEntity(source, this);
-		this.sources.set(source.id, source);
-		this.bindSource(source);
-
-		if (this.nativeMap) {
-			this.materializeSource(source);
-		}
-
-		return source;
+		return this.addManagedEntity(this.sources, source, "source", (entity) => {
+			this.bindSource(entity);
+		}, (entity) => {
+			this.materializeSource(entity);
+		});
 	}
 
 	public getSource(
@@ -506,13 +458,9 @@ export abstract class AbstractMap<
 			this.removeLayer(layer.id);
 		}
 
-		if (this.nativeMap) {
-			this.dematerializeSource(source);
-		}
-
-		releaseManagedEntity(source, this);
-		this.unbindEntity(source.id);
-		this.sources.delete(sourceId);
+		this.removeManagedEntity(this.sources, sourceId, (entity) => {
+			this.dematerializeSource(entity);
+		});
 		return this;
 	}
 
@@ -527,16 +475,11 @@ export abstract class AbstractMap<
 			);
 		}
 
-		this.ensureUnique(this.layers, layer.id, "layer");
-		bindManagedEntity(layer, this);
-		this.layers.set(layer.id, layer);
-		this.bindLayer(layer);
-
-		if (this.nativeMap) {
-			this.materializeLayer(layer);
-		}
-
-		return layer;
+		return this.addManagedEntity(this.layers, layer, "layer", (entity) => {
+			this.bindLayer(entity);
+		}, (entity) => {
+			this.materializeLayer(entity);
+		});
 	}
 
 	public getLayer(
@@ -550,18 +493,9 @@ export abstract class AbstractMap<
 			console.warn(`Map has been destroyed and cannot removeLayer.`);
 			return this;
 		}
-		const layer = this.layers.get(layerId);
-		if (!layer) {
-			return this;
-		}
-
-		if (this.nativeMap) {
-			this.dematerializeLayer(layer);
-		}
-
-		releaseManagedEntity(layer, this);
-		this.unbindEntity(layer.id);
-		this.layers.delete(layerId);
+		this.removeManagedEntity(this.layers, layerId, (entity) => {
+			this.dematerializeLayer(entity);
+		});
 		return this;
 	}
 
@@ -581,16 +515,11 @@ export abstract class AbstractMap<
 			this.assertOverlayCapabilities(overlay);
 		}
 
-		this.ensureUnique(this.overlays, overlay.id, "overlay");
-		bindManagedEntity(overlay, this);
-		this.overlays.set(overlay.id, overlay);
-		this.bindOverlay(overlay);
-
-		if (this.nativeMap) {
-			this.materializeOverlay(overlay);
-		}
-
-		return overlay;
+		return this.addManagedEntity(this.overlays, overlay, "overlay", (entity) => {
+			this.bindOverlay(entity);
+		}, (entity) => {
+			this.materializeOverlay(entity);
+		});
 	}
 
 	public getOverlay(
@@ -604,18 +533,9 @@ export abstract class AbstractMap<
 			console.warn(`Map has been destroyed and cannot removeOverlay.`);
 			return this;
 		}
-		const overlay = this.overlays.get(overlayId);
-		if (!overlay) {
-			return this;
-		}
-
-		if (this.nativeMap) {
-			this.dematerializeOverlay(overlay);
-		}
-
-		releaseManagedEntity(overlay, this);
-		this.unbindEntity(overlay.id);
-		this.overlays.delete(overlayId);
+		this.removeManagedEntity(this.overlays, overlayId, (entity) => {
+			this.dematerializeOverlay(entity);
+		});
 		return this;
 	}
 
@@ -635,16 +555,11 @@ export abstract class AbstractMap<
 			this.assertControlCapabilities(control);
 		}
 
-		this.ensureUnique(this.controls, control.id, "control");
-		bindManagedEntity(control, this);
-		this.controls.set(control.id, control);
-		this.bindControl(control);
-
-		if (this.nativeMap) {
-			this.materializeControl(control);
-		}
-
-		return control;
+		return this.addManagedEntity(this.controls, control, "control", (entity) => {
+			this.bindControl(entity);
+		}, (entity) => {
+			this.materializeControl(entity);
+		});
 	}
 
 	public getControl(
@@ -658,19 +573,91 @@ export abstract class AbstractMap<
 			console.warn(`Map has been destroyed and cannot removeControl.`);
 			return this;
 		}
-		const control = this.controls.get(controlId);
-		if (!control) {
-			return this;
+		this.removeManagedEntity(this.controls, controlId, (entity) => {
+			this.dematerializeControl(entity);
+		});
+		return this;
+	}
+
+	private mountManagedCollection<TEntity extends {readonly id: string}>(
+		registry: Map<string, TEntity>,
+		entityKind: ManagedEntityKind,
+		materialize: (entity: TEntity) => void,
+	): void {
+		for (const entity of registry.values()) {
+			try {
+				materialize(entity);
+			} catch (error) {
+				this.fireError("mount", `Failed to mount ${entityKind} "${entity.id}".`, error, entityKind, entity.id);
+			}
+		}
+	}
+
+	private unmountManagedCollection<TEntity extends {readonly id: string}>(
+		registry: Map<string, TEntity>,
+		operation: "unmount" | "destroy",
+		dematerialize: (entity: TEntity, operation: "unmount" | "destroy") => void,
+	): void {
+		for (const entity of Array.from(registry.values()).reverse()) {
+			dematerialize(entity, operation);
+		}
+	}
+
+	private releaseManagedCollection<TEntity extends MapManagedEntityLifecycle>(
+		registry: Map<string, TEntity>,
+		entityKind: ManagedEntityKind,
+	): void {
+		for (const entity of Array.from(registry.values()).reverse()) {
+			try {
+				releaseManagedEntity(entity, this);
+			} catch (error) {
+				this.fireError("destroy", `Failed to release ${entityKind} "${entity.id}" during destroy.`, error, entityKind, entity.id);
+			}
+			this.unbindEntity(entity.id);
+		}
+
+		registry.clear();
+	}
+
+	private addManagedEntity<
+		TEntity extends MapManagedEntityLifecycle,
+		TSpecificEntity extends TEntity,
+	>(
+		registry: Map<string, TEntity>,
+		entity: TSpecificEntity,
+		entityKind: ManagedEntityKind,
+		bind: (entity: TEntity) => void,
+		materialize: (entity: TEntity) => void,
+	): TSpecificEntity {
+		this.ensureUnique(registry, entity.id, entityKind);
+		bindManagedEntity(entity, this);
+		registry.set(entity.id, entity);
+		bind(entity);
+
+		if (this.nativeMap) {
+			materialize(entity);
+		}
+
+		return entity;
+	}
+
+	private removeManagedEntity<TEntity extends MapManagedEntityLifecycle>(
+		registry: Map<string, TEntity>,
+		entityId: string,
+		dematerialize: (entity: TEntity) => void,
+	): void {
+		const entity = registry.get(entityId);
+		if (!entity) {
+			return;
 		}
 
 		if (this.nativeMap) {
-			this.dematerializeControl(control);
+			dematerialize(entity);
 		}
 
-		releaseManagedEntity(control, this);
-		this.unbindEntity(control.id);
-		this.controls.delete(controlId);
-		return this;
+		releaseManagedEntity(entity, this);
+		this.unbindEntity(entity.id);
+		registry.delete(entityId);
 	}
 
 	private bindSource(source: MapSourceEntity<H["source"]>): void {

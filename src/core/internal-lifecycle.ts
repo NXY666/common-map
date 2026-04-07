@@ -17,9 +17,9 @@ interface LifecycleManagedEntity<TNativeHandle = unknown> {
 		map: AbstractMap,
 		nativeHandle: TNativeHandle,
 		access: EntityLifecycleAccess,
-	): unknown;
+	): void;
 
-	detachFromMap(access: EntityLifecycleAccess): unknown;
+	detachFromMap(access: EntityLifecycleAccess): void;
 }
 
 const lifecycleAccess = {} as EntityLifecycleAccess;
