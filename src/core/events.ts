@@ -54,7 +54,7 @@ export type EventVariants<
 	[K in TType]: TPayload;
 };
 
-export type LifecycleState = "draft" | "mounted" | "disposed";
+export type EntityState = "detached" | "registered" | "mounted" | "disposed";
 
 export type PointerEventType =
 	| "click"
@@ -137,7 +137,7 @@ export interface LayerFeatureHit {
 export interface MapEntitySnapshot<TOptions extends object> {
 	id: string;
 
-	state: LifecycleState;
+	state: EntityState;
 
 	options: Readonly<TOptions>;
 }

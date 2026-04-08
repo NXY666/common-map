@@ -1,14 +1,14 @@
 import {
 	type EmptyEventMap,
+	type EntityState,
 	type EntityEvent,
 	type EventMapBase,
 	type EventPayload,
 	type EventType,
-	type LifecycleState,
 	type MapEntitySnapshot,
 	TypedEvented,
 } from "./events";
-import {type EntityLifecycleAccess, getManagedMap, hasEntityLifecycleAccess,} from "./internal-lifecycle";
+import {type EntityLifecycleAccess, hasEntityLifecycleAccess,} from "./internal-lifecycle";
 import {adapterEventEmitterSymbol} from "./internal-event-bridge";
 import type {AbstractMap} from "./map";
 
@@ -21,9 +21,9 @@ export abstract class AbstractMapEntity<
 
 	protected optionsValue: TOptions;
 
-	protected stateValue: LifecycleState = "draft";
+	protected stateValue: EntityState = "detached";
 
-	protected mapRef?: AbstractMap;
+	protected ownerMap?: AbstractMap;
 
 	protected nativeHandle?: TNativeHandle;
 
@@ -37,16 +37,12 @@ export abstract class AbstractMapEntity<
 		return this.optionsValue;
 	}
 
-	public get state(): LifecycleState {
+	public get state(): EntityState {
 		return this.stateValue;
 	}
 
-	public get mountedMap(): AbstractMap | undefined {
-		return this.mapRef;
-	}
-
-	public get managingMap(): AbstractMap | undefined {
-		return getManagedMap(this);
+	public get map(): AbstractMap | undefined {
+		return this.ownerMap;
 	}
 
 	public getNativeHandle(): TNativeHandle | undefined {
@@ -55,6 +51,10 @@ export abstract class AbstractMapEntity<
 
 	public isMounted(): boolean {
 		return this.stateValue === "mounted";
+	}
+
+	public isRegistered(): boolean {
+		return this.stateValue === "registered" || this.stateValue === "mounted";
 	}
 
 	public isDisposed(): boolean {
@@ -96,16 +96,15 @@ export abstract class AbstractMapEntity<
 		return this;
 	}
 
-	public attachToMap(
+	public attach(
 		map: AbstractMap,
 		nativeHandle: TNativeHandle,
 		access: EntityLifecycleAccess,
 	): this {
-		// 仅允许已托管实体进入 mounted
 		this.assertLifecycleAccess(access);
 		this.ensureMutable();
 
-		if (this.managingMap !== map) {
+		if (this.ownerMap !== map || this.stateValue === "detached") {
 			throw new Error(
 				`Entity "${this.id}" must be registered on map "${map.id}" before mounting.`,
 			);
@@ -115,24 +114,61 @@ export abstract class AbstractMapEntity<
 			throw new Error(`Entity "${this.id}" is already mounted.`);
 		}
 
-		this.mapRef = map;
 		this.nativeHandle = nativeHandle;
 		this.stateValue = "mounted";
 		this.fire("mounted", this.snapshot());
 		return this;
 	}
 
-	public detachFromMap(access: EntityLifecycleAccess): this {
+	public register(
+		map: AbstractMap,
+		access: EntityLifecycleAccess,
+	): this {
+		this.assertLifecycleAccess(access);
+		this.ensureMutable();
+
+		if (this.ownerMap && this.ownerMap !== map) {
+			throw new Error(`Entity "${this.id}" is already registered on another map.`);
+		}
+
+		if (this.stateValue === "mounted" && this.ownerMap === map) {
+			return this;
+		}
+
+		this.ownerMap = map;
+		this.stateValue = "registered";
+		return this;
+	}
+
+	public detach(access: EntityLifecycleAccess): this {
 		this.assertLifecycleAccess(access);
 
 		if (this.stateValue !== "mounted") {
 			return this;
 		}
 
-		this.stateValue = "draft";
+		this.stateValue = "registered";
 		this.nativeHandle = undefined;
-		this.mapRef = undefined;
 		this.fire("unmounted", this.snapshot());
+		return this;
+	}
+
+	public unregister(access: EntityLifecycleAccess): this {
+		this.assertLifecycleAccess(access);
+
+		if (this.stateValue === "mounted") {
+			throw new Error(
+				`Entity "${this.id}" is still mounted and cannot be unregistered directly.`,
+			);
+		}
+
+		if (this.stateValue === "detached") {
+			return this;
+		}
+
+		this.ownerMap = undefined;
+		this.nativeHandle = undefined;
+		this.stateValue = "detached";
 		return this;
 	}
 
@@ -141,15 +177,14 @@ export abstract class AbstractMapEntity<
 			return this;
 		}
 
-		const managingMap = this.managingMap;
-		if (managingMap) {
+		if (this.isRegistered()) {
 			throw new Error(
-				`Entity "${this.id}" is still managed by map "${managingMap.id}". Remove it from the map before disposing.`,
+				`Entity "${this.id}" is still registered on map "${this.ownerMap?.id}". Remove it from the map before disposing.`,
 			);
 		}
 
 		this.nativeHandle = undefined;
-		this.mapRef = undefined;
+		this.ownerMap = undefined;
 		this.stateValue = "disposed";
 		return this;
 	}

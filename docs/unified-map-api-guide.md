@@ -159,8 +159,8 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
   [*] --> draft
-  draft --> mounted: attachToMap
-  mounted --> draft: detachFromMap / removeXxx / destroy
+  draft --> mounted: attach
+  mounted --> draft: detach / removeXxx / destroy
   draft --> disposed: dispose
   disposed --> [*]
 ```
@@ -252,8 +252,8 @@ classDiagram
     +isDisposed()
     +emitFromAdapter(type, payload, access)
     +patchOptions(patch)
-    +attachToMap(map, nativeHandle, access)
-    +detachFromMap(access)
+    +attach(map, nativeHandle, access)
+    +detach(access)
     +dispose()
     #snapshot()
     #ensureMutable()
@@ -513,8 +513,8 @@ classDiagram
 当前行为重点如下：
 
 - `patchOptions(patch)` 会做浅合并，并立即触发 `updated` 事件。
-- `attachToMap()` 与 `detachFromMap()` 必须拿到内部 `EntityLifecycleAccess` 才能调用。
-- `attachToMap()` 要求该实体已经先被当前 `Map` 注册为 `managingMap`。
+- `attach()` 与 `detach()` 必须拿到内部 `EntityLifecycleAccess` 才能调用。
+- `attach()` 要求该实体已经先被当前 `Map` 注册为 `managingMap`。
 - `dispose()` 前必须确保实体已经从 `Map` 里移除；只要还被托管，就会报错。
 - `emitFromAdapter()` 只能接受 adapter bridge 发来的访问令牌，业务层不能伪造交互事件。
 

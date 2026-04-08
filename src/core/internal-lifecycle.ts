@@ -13,18 +13,20 @@ interface ManagedEntity<TNativeHandle = unknown> {
 
 	isMounted(): boolean;
 
-	attachToMap(
+	register(map: AbstractMap, access: EntityLifecycleAccess): void;
+
+	unregister(access: EntityLifecycleAccess): void;
+
+	attach(
 		map: AbstractMap,
 		nativeHandle: TNativeHandle,
 		access: EntityLifecycleAccess,
 	): void;
 
-	detachFromMap(access: EntityLifecycleAccess): void;
+	detach(access: EntityLifecycleAccess): void;
 }
 
-// 使用访问令牌和 WeakMap 管理生命周期入口
 const lifecycleAccess = {} as EntityLifecycleAccess;
-const managedEntities = new WeakMap<object, AbstractMap>();
 
 export function hasEntityLifecycleAccess(
 	access: unknown,
@@ -32,54 +34,23 @@ export function hasEntityLifecycleAccess(
 	return access === lifecycleAccess;
 }
 
-export function getManagedMap(entity: object): AbstractMap | undefined {
-	return managedEntities.get(entity);
-}
-
-export function bindManagedEntity(
+export function registerManagedEntity(
 	entity: ManagedEntity,
 	map: AbstractMap,
 ): void {
-	// 同一实体只能绑定到一个 map
 	if (entity.isDisposed()) {
 		throw new Error(`Entity "${entity.id}" has been disposed.`);
 	}
 
-	const existingMap = managedEntities.get(entity);
-	if (existingMap && existingMap !== map) {
-		throw new Error(
-			`Entity "${entity.id}" is already managed by another map instance.`,
-		);
-	}
-
-	if (!existingMap) {
-		managedEntities.set(entity, map);
-	}
+	entity.register(map, lifecycleAccess);
 }
 
-export function releaseManagedEntity(
-	entity: ManagedEntity,
-	map: AbstractMap,
-): void {
-	// release 前要求实体已卸载
-	const existingMap = managedEntities.get(entity);
-	if (!existingMap) {
+export function unregisterManagedEntity(entity: ManagedEntity): void {
+	if (entity.isDisposed()) {
 		return;
 	}
 
-	if (existingMap !== map) {
-		throw new Error(
-			`Entity "${entity.id}" is managed by another map instance.`,
-		);
-	}
-
-	if (entity.isMounted()) {
-		throw new Error(
-			`Entity "${entity.id}" is still mounted and cannot be released directly.`,
-		);
-	}
-
-	managedEntities.delete(entity);
+	entity.unregister(lifecycleAccess);
 }
 
 export function mountManagedEntity<TNativeHandle>(
@@ -87,9 +58,9 @@ export function mountManagedEntity<TNativeHandle>(
 	map: AbstractMap,
 	nativeHandle: TNativeHandle,
 ): void {
-	entity.attachToMap(map, nativeHandle, lifecycleAccess);
+	entity.attach(map, nativeHandle, lifecycleAccess);
 }
 
 export function unmountManagedEntity(entity: ManagedEntity): void {
-	entity.detachFromMap(lifecycleAccess);
+	entity.detach(lifecycleAccess);
 }

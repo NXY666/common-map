@@ -82,8 +82,8 @@ export abstract class AbstractMarkerOverlay<
 			// marker 与 popup 必须属于同一个 map
 			this.assertCapability(mapCapabilityKeys.overlay.markerBindPopup);
 
-			const markerMap = this.managingMap;
-			const popupMap = nextPopup.managingMap;
+			const markerMap = this.map;
+			const popupMap = nextPopup.map;
 
 			if (markerMap && popupMap && markerMap !== popupMap) {
 				throw new Error(

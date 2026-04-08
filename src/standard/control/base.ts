@@ -82,6 +82,6 @@ export abstract class AbstractStandardControl<
 		capability: MapCapability,
 		minimum: CapabilityLevel = "emulated",
 	): void {
-		this.managingMap?.adapter.capabilities.assert(capability, minimum);
+		this.map?.adapter.capabilities.assert(capability, minimum);
 	}
 }

@@ -28,7 +28,7 @@ import type {
 	UnifiedMapRuntimeOptions,
 	UnifiedMapStyle,
 } from "./types";
-import {bindManagedEntity, mountManagedEntity, releaseManagedEntity, unmountManagedEntity, type EntityLifecycleAccess,} from "./internal-lifecycle";
+import {mountManagedEntity, registerManagedEntity, unregisterManagedEntity, unmountManagedEntity, type EntityLifecycleAccess,} from "./internal-lifecycle";
 import {adapterEventEmitterSymbol} from "./internal-event-bridge";
 import {createMapEventBridge} from "./internal-events";
 
@@ -70,12 +70,14 @@ interface MapOverlayLifecycle<TOverlayHandle = unknown> {
 	readonly id: string;
 	isDisposed(): boolean;
 	isMounted(): boolean;
-	attachToMap(
+	register(map: AbstractMap, access: EntityLifecycleAccess): void;
+	unregister(access: EntityLifecycleAccess): void;
+	attach(
 		map: AbstractMap,
 		nativeHandle: TOverlayHandle,
 		access: EntityLifecycleAccess,
 	): void;
-	detachFromMap(access: EntityLifecycleAccess): void;
+	detach(access: EntityLifecycleAccess): void;
 	getNativeHandle(): TOverlayHandle;
 }
 
@@ -90,12 +92,14 @@ interface MapControlLifecycle<TControlHandle = unknown> {
 	readonly id: string;
 	isDisposed(): boolean;
 	isMounted(): boolean;
-	attachToMap(
+	register(map: AbstractMap, access: EntityLifecycleAccess): void;
+	unregister(access: EntityLifecycleAccess): void;
+	attach(
 		map: AbstractMap,
 		nativeHandle: TControlHandle,
 		access: EntityLifecycleAccess,
 	): void;
-	detachFromMap(access: EntityLifecycleAccess): void;
+	detach(access: EntityLifecycleAccess): void;
 	getNativeHandle(): TControlHandle;
 }
 
@@ -112,12 +116,14 @@ interface ManagedEntity<TNativeHandle = unknown> {
 	readonly id: string;
 	isDisposed(): boolean;
 	isMounted(): boolean;
-	attachToMap(
+	register(map: AbstractMap, access: EntityLifecycleAccess): void;
+	unregister(access: EntityLifecycleAccess): void;
+	attach(
 		map: AbstractMap,
 		nativeHandle: TNativeHandle,
 		access: EntityLifecycleAccess,
 	): void;
-	detachFromMap(access: EntityLifecycleAccess): void;
+	detach(access: EntityLifecycleAccess): void;
 }
 
 export abstract class AbstractMap<
@@ -610,12 +616,12 @@ export abstract class AbstractMap<
 		registry: Map<string, TEntity>,
 		entityKind: ManagedEntityKind,
 	): void {
-		// destroy 阶段按逆序释放托管关系
+		// destroy 阶段按逆序释放归属关系
 		for (const entity of Array.from(registry.values()).reverse()) {
 			try {
-				releaseManagedEntity(entity, this);
+				unregisterManagedEntity(entity);
 			} catch (error) {
-				this.fireError("destroy", `Failed to release ${entityKind} "${entity.id}" during destroy.`, error, entityKind, entity.id);
+				this.fireError("destroy", `Failed to unregister ${entityKind} "${entity.id}" during destroy.`, error, entityKind, entity.id);
 			}
 			this.unbindEntity(entity.id);
 		}
@@ -634,11 +640,11 @@ export abstract class AbstractMap<
 		materialize: (entity: TEntity) => void,
 	): TSpecificEntity {
 		this.ensureUnique(registry, entity.id, entityKind);
-		bindManagedEntity(entity, this);
+		registerManagedEntity(entity, this);
 		registry.set(entity.id, entity);
 		bind(entity);
 
-		if (this.nativeMap) {
+		if (this.isMounted) {
 			materialize(entity);
 		}
 
@@ -655,13 +661,13 @@ export abstract class AbstractMap<
 			return;
 		}
 
-		if (this.nativeMap) {
+		if (entity.isMounted()) {
 			dematerialize(entity);
 		}
 
-		releaseManagedEntity(entity, this);
-		this.unbindEntity(entity.id);
 		registry.delete(entityId);
+		this.unbindEntity(entity.id);
+		unregisterManagedEntity(entity);
 	}
 
 	private bindSource(source: MapSourceEntity<THandles["source"]>): void {
