@@ -1,4 +1,4 @@
-import type {EmptyEventUnion} from "@/core/events";
+import type {EmptyEventMap} from "@/core/events";
 import {AbstractPathOverlay} from "./path";
 import type {PolylineOverlayDefinition, PolylineOverlayOptions, PolylineStyle,} from "./types";
 
@@ -8,7 +8,7 @@ export abstract class AbstractPolylineOverlay<
 > extends AbstractPathOverlay<
 	TOptions,
 	PolylineOverlayDefinition,
-	EmptyEventUnion,
+	EmptyEventMap,
 	TOverlayHandle
 > {
 	public readonly kind = "polyline" as const;

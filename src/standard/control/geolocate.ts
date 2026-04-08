@@ -1,5 +1,5 @@
 import {AbstractStandardControl} from "./base";
-import {MAP_CAPABILITY_KEYS} from "@/core/capability";
+import {mapCapabilityKeys} from "@/core/capability";
 import type {GeolocateControlDefinition, GeolocateControlEvent, GeolocateControlOptions,} from "./types";
 
 export abstract class AbstractGeolocateControl<
@@ -26,7 +26,7 @@ export abstract class AbstractGeolocateControl<
 
 	public setTracking(tracking: boolean): this {
 		if (tracking) {
-			this.assertCapability(MAP_CAPABILITY_KEYS.control.geolocateTracking);
+			this.assertCapability(mapCapabilityKeys.control.geolocateTracking);
 		}
 
 		if (tracking === this.tracking) {
@@ -49,6 +49,7 @@ export abstract class AbstractGeolocateControl<
 	}
 
 	public locateOnce(): this {
+		// 递增版本号以表达新的定位请求
 		const locateRequestVersion = (this.options.locateRequestVersion ?? 0) + 1;
 		this.setOptions("locateRequestVersion", locateRequestVersion);
 		return this;

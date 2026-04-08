@@ -1,5 +1,5 @@
 import {AbstractStandardControl} from "./base";
-import {MAP_CAPABILITY_KEYS} from "@/core/capability";
+import {mapCapabilityKeys} from "@/core/capability";
 import type {FullscreenControlDefinition, FullscreenControlEvent, FullscreenControlOptions,} from "./types";
 
 export abstract class AbstractFullscreenControl<
@@ -49,7 +49,7 @@ export abstract class AbstractFullscreenControl<
 
 	public setActive(active: boolean): this {
 		if (active) {
-			this.assertCapability(MAP_CAPABILITY_KEYS.control.fullscreenActive);
+			this.assertCapability(mapCapabilityKeys.control.fullscreenActive);
 		}
 
 		if (active === this.active) {

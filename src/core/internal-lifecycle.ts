@@ -6,7 +6,7 @@ export interface EntityLifecycleAccess {
 	readonly [entityLifecycleBrand]: true;
 }
 
-interface LifecycleManagedEntity<TNativeHandle = unknown> {
+interface ManagedEntity<TNativeHandle = unknown> {
 	readonly id: string;
 
 	isDisposed(): boolean;
@@ -22,6 +22,7 @@ interface LifecycleManagedEntity<TNativeHandle = unknown> {
 	detachFromMap(access: EntityLifecycleAccess): void;
 }
 
+// 使用访问令牌和 WeakMap 管理生命周期入口
 const lifecycleAccess = {} as EntityLifecycleAccess;
 const managedEntities = new WeakMap<object, AbstractMap>();
 
@@ -36,9 +37,10 @@ export function getManagedMap(entity: object): AbstractMap | undefined {
 }
 
 export function bindManagedEntity(
-	entity: LifecycleManagedEntity,
+	entity: ManagedEntity,
 	map: AbstractMap,
 ): void {
+	// 同一实体只能绑定到一个 map
 	if (entity.isDisposed()) {
 		throw new Error(`Entity "${entity.id}" has been disposed.`);
 	}
@@ -56,9 +58,10 @@ export function bindManagedEntity(
 }
 
 export function releaseManagedEntity(
-	entity: LifecycleManagedEntity,
+	entity: ManagedEntity,
 	map: AbstractMap,
 ): void {
+	// release 前要求实体已卸载
 	const existingMap = managedEntities.get(entity);
 	if (!existingMap) {
 		return;
@@ -80,13 +83,13 @@ export function releaseManagedEntity(
 }
 
 export function mountManagedEntity<TNativeHandle>(
-	entity: LifecycleManagedEntity<TNativeHandle>,
+	entity: ManagedEntity<TNativeHandle>,
 	map: AbstractMap,
 	nativeHandle: TNativeHandle,
 ): void {
 	entity.attachToMap(map, nativeHandle, lifecycleAccess);
 }
 
-export function unmountManagedEntity(entity: LifecycleManagedEntity): void {
+export function unmountManagedEntity(entity: ManagedEntity): void {
 	entity.detachFromMap(lifecycleAccess);
 }

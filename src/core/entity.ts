@@ -41,7 +41,7 @@ export abstract class AbstractMapEntity<
 		return this.stateValue;
 	}
 
-	public get attachedMap(): AbstractMap | undefined {
+	public get mountedMap(): AbstractMap | undefined {
 		return this.mapRef;
 	}
 
@@ -101,6 +101,7 @@ export abstract class AbstractMapEntity<
 		nativeHandle: TNativeHandle,
 		access: EntityLifecycleAccess,
 	): this {
+		// 仅允许已托管实体进入 mounted
 		this.assertLifecycleAccess(access);
 		this.ensureMutable();
 
@@ -175,6 +176,7 @@ export abstract class AbstractMapEntity<
 	}
 
 	private emitUpdated(patch: Partial<TOptions>): void {
+		// updated 事件同时携带快照和补丁
 		this.fire("updated", {
 			...this.snapshot(),
 			patch

@@ -38,6 +38,7 @@ export interface MapEventBridge {
 	): void;
 }
 
+// 桥接器仅负责事件转发
 export function createMapEventBridge(map: AbstractMap): MapEventBridge {
 	return {
 		emit: (type, payload) => {

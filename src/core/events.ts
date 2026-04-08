@@ -6,27 +6,9 @@ export interface Subscription {
 
 export type EventMapBase = Record<string, object>;
 
-export interface EventBase {
-	type: string;
-}
-
 export type EmptyEventMap = Record<never, never>;
-export type EmptyEventUnion = EmptyEventMap;
 
-export type EventUnionFromMap<TMap extends EventMapBase> = {
-	[K in keyof TMap & string]: { type: K } & TMap[K];
-}[keyof TMap & string];
-
-export type EventMapFromUnion<TEvents extends EventBase> = {
-	[K in TEvents extends { type: infer TType extends string } ? TType : never]:
-	Omit<Extract<TEvents, { type: K }>, "type">;
-};
-
-type NormalizedEventMap<TEvents extends EventMapBase | EventBase> =
-	TEvents extends EventBase ? EventMapFromUnion<TEvents> : TEvents;
-
-export type EventType<TEvents extends EventMapBase | EventBase> =
-	keyof NormalizedEventMap<TEvents> & string;
+export type EventType<TEvents extends EventMapBase> = keyof TEvents & string;
 
 type AssertNoOverlap<
 	TBase extends EventMapBase,
@@ -36,15 +18,22 @@ type AssertNoOverlap<
 export type AppendEvents<
 	TBase extends EventMapBase,
 	TExtra extends EventMapBase = EmptyEventMap,
-> = TBase & AssertNoOverlap<TBase, TExtra>;
+> = {
+	[K in keyof TBase | keyof AssertNoOverlap<TBase, TExtra>]:
+	K extends keyof TBase
+		? TBase[K]
+		: K extends keyof AssertNoOverlap<TBase, TExtra>
+			? AssertNoOverlap<TBase, TExtra>[K]
+			: never;
+};
 
 export type EventPayload<
-	TEvents extends EventMapBase | EventBase,
+	TEvents extends EventMapBase,
 	TType extends EventType<TEvents>,
-> = NormalizedEventMap<TEvents>[TType];
+> = TEvents[TType];
 
 export type EventOf<
-	TEvents extends EventMapBase | EventBase,
+	TEvents extends EventMapBase,
 	TType extends EventType<TEvents>,
 	TTarget,
 > = {
@@ -53,7 +42,7 @@ export type EventOf<
 } & EventPayload<TEvents, TType>;
 
 export type EventListener<
-	TEvents extends EventMapBase | EventBase,
+	TEvents extends EventMapBase,
 	TType extends EventType<TEvents>,
 	TTarget,
 > = (event: EventOf<TEvents, TType, TTarget>) => void;
@@ -292,7 +281,7 @@ export type MapAdapterEvent = Omit<
 
 type UntypedListener = (event: object) => void;
 
-export abstract class TypedEvented<TEvents extends EventMapBase | EventBase> {
+export abstract class TypedEvented<TEvents extends EventMapBase> {
 	private readonly listeners = new Map<string, Set<UntypedListener>>();
 
 	private readonly oneTimeListeners = new Map<string, Set<UntypedListener>>();
@@ -355,6 +344,7 @@ export abstract class TypedEvented<TEvents extends EventMapBase | EventBase> {
 		type: K,
 		payload?: EventPayload<TEvents, K>,
 	): this {
+		// 先构造事件对象，再分发持久监听和一次性监听
 		const event = {
 			type,
 			target: this,

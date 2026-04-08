@@ -108,7 +108,7 @@ type MapControlEntity<TControlHandle> = MapControlLifecycle<TControlHandle> & Ma
 
 type ManagedEntityKind = "source" | "layer" | "overlay" | "control";
 
-interface MapManagedEntityLifecycle<TNativeHandle = unknown> {
+interface ManagedEntity<TNativeHandle = unknown> {
 	readonly id: string;
 	isDisposed(): boolean;
 	isMounted(): boolean;
@@ -121,23 +121,23 @@ interface MapManagedEntityLifecycle<TNativeHandle = unknown> {
 }
 
 export abstract class AbstractMap<
-	H extends AdapterHandles = AdapterHandles,
+	THandles extends AdapterHandles = AdapterHandles,
 > extends TypedEvented<MapEvent> {
 	public readonly id: string;
 
-	public readonly adapter: AbstractMapAdapter<H>;
+	public readonly adapter: AbstractMapAdapter<THandles>;
 
 	protected readonly options: UnifiedMapOptions;
 
-	protected nativeMap?: H["map"];
+	protected nativeMap?: THandles["map"];
 
-	protected readonly sources = new Map<string, MapSourceEntity<H["source"]>>();
+	protected readonly sources = new Map<string, MapSourceEntity<THandles["source"]>>();
 
-	protected readonly layers = new Map<string, MapLayerEntity<H["layer"]>>();
+	protected readonly layers = new Map<string, MapLayerEntity<THandles["layer"]>>();
 
-	protected readonly overlays = new Map<string, MapOverlayEntity<H["overlay"]>>();
+	protected readonly overlays = new Map<string, MapOverlayEntity<THandles["overlay"]>>();
 
-	protected readonly controls = new Map<string, MapControlEntity<H["control"]>>();
+	protected readonly controls = new Map<string, MapControlEntity<THandles["control"]>>();
 
 	private runtimeOptions: UnifiedMapRuntimeOptions;
 
@@ -150,7 +150,7 @@ export abstract class AbstractMap<
 	private readonly subscriptions = new Map<string, Subscription>();
 
 	protected constructor(
-		adapter: AbstractMapAdapter<H>,
+		adapter: AbstractMapAdapter<THandles>,
 		options: UnifiedMapOptions,
 	) {
 		super();
@@ -189,6 +189,7 @@ export abstract class AbstractMap<
 			return this;
 		}
 
+		// 并发 load() 复用同一个 Promise
 		if (!this.loadPromise) {
 			this.loadPromise = this.adapter.load().then(() => {
 				this.loaded = true;
@@ -223,7 +224,7 @@ export abstract class AbstractMap<
 			return this;
 		}
 
-		let nativeMap: H["map"] | undefined;
+		let nativeMap: THandles["map"] | undefined;
 		try {
 			nativeMap = this.adapter.createMap(
 				{container: target},
@@ -245,6 +246,7 @@ export abstract class AbstractMap<
 		this.nativeMap = nativeMap;
 		this.stateValue = "mounted";
 
+		// 挂载后补齐已注册实体的物化
 		this.mountManagedCollection(this.sources, "source", (entity) => {
 			this.materializeSource(entity);
 		});
@@ -279,17 +281,17 @@ export abstract class AbstractMap<
 
 		const operation = "unmount" as const;
 
-		this.unmountManagedCollection(this.controls, operation, (entity, op) => {
-			this.dematerializeControl(entity, op);
+		this.unmountManagedCollection(this.controls, operation, (entity, operation) => {
+			this.dematerializeControl(entity, operation);
 		});
-		this.unmountManagedCollection(this.overlays, operation, (entity, op) => {
-			this.dematerializeOverlay(entity, op);
+		this.unmountManagedCollection(this.overlays, operation, (entity, operation) => {
+			this.dematerializeOverlay(entity, operation);
 		});
-		this.unmountManagedCollection(this.layers, operation, (entity, op) => {
-			this.dematerializeLayer(entity, op);
+		this.unmountManagedCollection(this.layers, operation, (entity, operation) => {
+			this.dematerializeLayer(entity, operation);
 		});
-		this.unmountManagedCollection(this.sources, operation, (entity, op) => {
-			this.dematerializeSource(entity, op);
+		this.unmountManagedCollection(this.sources, operation, (entity, operation) => {
+			this.dematerializeSource(entity, operation);
 		});
 
 		this.destroyNativeMap(nativeMap, operation);
@@ -411,7 +413,7 @@ export abstract class AbstractMap<
 		return this.adapter.unproject(this.nativeMap, point);
 	}
 
-	public addSource<TSource extends MapSourceEntity<H["source"]>>(source: TSource): TSource {
+	public addSource<TSource extends MapSourceEntity<THandles["source"]>>(source: TSource): TSource {
 		if (this.isDestroyed) {
 			console.warn(`Map has been destroyed and cannot addSource.`);
 			return source;
@@ -425,7 +427,7 @@ export abstract class AbstractMap<
 
 	public getSource(
 		sourceId: string,
-	): MapSourceEntity<H["source"]> | undefined {
+	): MapSourceEntity<THandles["source"]> | undefined {
 		return this.sources.get(sourceId);
 	}
 
@@ -446,6 +448,7 @@ export abstract class AbstractMap<
 			(layer) => layer.sourceId === sourceId,
 		);
 
+		// 存在依赖 layer 时仅允许 cascade 删除
 		if (dependentLayers.length > 0 && !options.cascade) {
 			throw new Error(
 				`Cannot remove source "${sourceId}" while layers [${dependentLayers
@@ -464,7 +467,7 @@ export abstract class AbstractMap<
 		return this;
 	}
 
-	public addLayer<TLayer extends MapLayerEntity<H["layer"]>>(layer: TLayer): TLayer {
+	public addLayer<TLayer extends MapLayerEntity<THandles["layer"]>>(layer: TLayer): TLayer {
 		if (this.isDestroyed) {
 			console.warn(`Map has been destroyed and cannot addLayer.`);
 			return layer;
@@ -484,7 +487,7 @@ export abstract class AbstractMap<
 
 	public getLayer(
 		layerId: string,
-	): MapLayerEntity<H["layer"]> | undefined {
+	): MapLayerEntity<THandles["layer"]> | undefined {
 		return this.layers.get(layerId);
 	}
 
@@ -504,7 +507,7 @@ export abstract class AbstractMap<
 			OverlayOptions,
 			OverlayDefinition,
 			EmptyEventMap,
-			H["overlay"]
+			THandles["overlay"]
 		>
 	>(overlay: TOverlay): TOverlay {
 		if (this.isDestroyed) {
@@ -524,7 +527,7 @@ export abstract class AbstractMap<
 
 	public getOverlay(
 		overlayId: string,
-	): MapOverlayEntity<H["overlay"]> | undefined {
+	): MapOverlayEntity<THandles["overlay"]> | undefined {
 		return this.overlays.get(overlayId);
 	}
 
@@ -544,7 +547,7 @@ export abstract class AbstractMap<
 			ControlOptions,
 			ControlDefinition,
 			EmptyEventMap,
-			H["control"]
+			THandles["control"]
 		>
 	>(control: TControl): TControl {
 		if (this.isDestroyed) {
@@ -564,7 +567,7 @@ export abstract class AbstractMap<
 
 	public getControl(
 		controlId: string,
-	): MapControlEntity<H["control"]> | undefined {
+	): MapControlEntity<THandles["control"]> | undefined {
 		return this.controls.get(controlId);
 	}
 
@@ -603,10 +606,11 @@ export abstract class AbstractMap<
 		}
 	}
 
-	private releaseManagedCollection<TEntity extends MapManagedEntityLifecycle>(
+	private releaseManagedCollection<TEntity extends ManagedEntity>(
 		registry: Map<string, TEntity>,
 		entityKind: ManagedEntityKind,
 	): void {
+		// destroy 阶段按逆序释放托管关系
 		for (const entity of Array.from(registry.values()).reverse()) {
 			try {
 				releaseManagedEntity(entity, this);
@@ -620,7 +624,7 @@ export abstract class AbstractMap<
 	}
 
 	private addManagedEntity<
-		TEntity extends MapManagedEntityLifecycle,
+		TEntity extends ManagedEntity,
 		TSpecificEntity extends TEntity,
 	>(
 		registry: Map<string, TEntity>,
@@ -641,7 +645,7 @@ export abstract class AbstractMap<
 		return entity;
 	}
 
-	private removeManagedEntity<TEntity extends MapManagedEntityLifecycle>(
+	private removeManagedEntity<TEntity extends ManagedEntity>(
 		registry: Map<string, TEntity>,
 		entityId: string,
 		dematerialize: (entity: TEntity) => void,
@@ -660,7 +664,7 @@ export abstract class AbstractMap<
 		registry.delete(entityId);
 	}
 
-	private bindSource(source: MapSourceEntity<H["source"]>): void {
+	private bindSource(source: MapSourceEntity<THandles["source"]>): void {
 		this.unbindEntity(source.id);
 
 		let refreshQueued = false;
@@ -673,6 +677,7 @@ export abstract class AbstractMap<
 			queueMicrotask(() => {
 				refreshQueued = false;
 
+				// 合并同一轮事件循环内的多次 source 刷新
 				if (!this.nativeMap || !source.isMounted()) {
 					return;
 				}
@@ -694,7 +699,7 @@ export abstract class AbstractMap<
 		);
 	}
 
-	private bindLayer(layer: MapLayerEntity<H["layer"]>): void {
+	private bindLayer(layer: MapLayerEntity<THandles["layer"]>): void {
 		this.unbindEntity(layer.id);
 		this.subscriptions.set(
 			layer.id,
@@ -712,7 +717,7 @@ export abstract class AbstractMap<
 		);
 	}
 
-	private bindOverlay(overlay: MapOverlayEntity<H["overlay"]>): void {
+	private bindOverlay(overlay: MapOverlayEntity<THandles["overlay"]>): void {
 		this.unbindEntity(overlay.id);
 		this.subscriptions.set(
 			overlay.id,
@@ -732,7 +737,7 @@ export abstract class AbstractMap<
 		);
 	}
 
-	private bindControl(control: MapControlEntity<H["control"]>): void {
+	private bindControl(control: MapControlEntity<THandles["control"]>): void {
 		this.unbindEntity(control.id);
 		this.subscriptions.set(
 			control.id,
@@ -757,7 +762,7 @@ export abstract class AbstractMap<
 		this.subscriptions.delete(entityId);
 	}
 
-	private materializeSource(source: MapSourceEntity<H["source"]>): void {
+	private materializeSource(source: MapSourceEntity<THandles["source"]>): void {
 		if (!this.nativeMap || source.isMounted()) {
 			return;
 		}
@@ -767,7 +772,7 @@ export abstract class AbstractMap<
 	}
 
 	private dematerializeSource(
-		source: MapSourceEntity<H["source"]>,
+		source: MapSourceEntity<THandles["source"]>,
 		operation?: "unmount" | "destroy",
 	): void {
 		if (!this.nativeMap || !source.isMounted()) {
@@ -780,6 +785,7 @@ export abstract class AbstractMap<
 			return;
 		}
 
+		// 批量卸载阶段将适配器异常转成 error 事件
 		try {
 			this.adapter.unmountSource(this.nativeMap, source, source.getNativeHandle());
 		} catch (error) {
@@ -797,7 +803,7 @@ export abstract class AbstractMap<
 		}
 	}
 
-	private materializeLayer(layer: MapLayerEntity<H["layer"]>): void {
+	private materializeLayer(layer: MapLayerEntity<THandles["layer"]>): void {
 		if (!this.nativeMap || layer.isMounted()) {
 			return;
 		}
@@ -807,7 +813,7 @@ export abstract class AbstractMap<
 	}
 
 	private dematerializeLayer(
-		layer: MapLayerEntity<H["layer"]>,
+		layer: MapLayerEntity<THandles["layer"]>,
 		operation?: "unmount" | "destroy",
 	): void {
 		if (!this.nativeMap || !layer.isMounted()) {
@@ -837,7 +843,7 @@ export abstract class AbstractMap<
 		}
 	}
 
-	private materializeOverlay(overlay: MapOverlayEntity<H["overlay"]>): void {
+	private materializeOverlay(overlay: MapOverlayEntity<THandles["overlay"]>): void {
 		if (!this.nativeMap || overlay.isMounted()) {
 			return;
 		}
@@ -849,7 +855,7 @@ export abstract class AbstractMap<
 	}
 
 	private dematerializeOverlay(
-		overlay: MapOverlayEntity<H["overlay"]>,
+		overlay: MapOverlayEntity<THandles["overlay"]>,
 		operation?: "unmount" | "destroy",
 	): void {
 		if (!this.nativeMap || !overlay.isMounted()) {
@@ -887,7 +893,7 @@ export abstract class AbstractMap<
 		}
 	}
 
-	private materializeControl(control: MapControlEntity<H["control"]>): void {
+	private materializeControl(control: MapControlEntity<THandles["control"]>): void {
 		if (!this.nativeMap || control.isMounted()) {
 			return;
 		}
@@ -899,7 +905,7 @@ export abstract class AbstractMap<
 	}
 
 	private dematerializeControl(
-		control: MapControlEntity<H["control"]>,
+		control: MapControlEntity<THandles["control"]>,
 		operation?: "unmount" | "destroy",
 	): void {
 		if (!this.nativeMap || !control.isMounted()) {
@@ -938,7 +944,7 @@ export abstract class AbstractMap<
 	}
 
 	private destroyNativeMap(
-		nativeMap: H["map"],
+		nativeMap: THandles["map"],
 		operation: "unmount" | "destroy",
 	): void {
 		try {
@@ -962,7 +968,7 @@ export abstract class AbstractMap<
 		}
 	}
 
-	private assertOverlayCapabilities(overlay: MapOverlayEntity<H["overlay"]>): void {
+	private assertOverlayCapabilities(overlay: MapOverlayEntity<THandles["overlay"]>): void {
 		const definition = overlay.toOverlayDefinition();
 
 		for (const capability of getOverlayRequiredCapabilities(definition)) {
@@ -970,7 +976,7 @@ export abstract class AbstractMap<
 		}
 	}
 
-	private assertControlCapabilities(control: MapControlEntity<H["control"]>): void {
+	private assertControlCapabilities(control: MapControlEntity<THandles["control"]>): void {
 		const definition = control.toControlDefinition();
 
 		for (const capability of getControlRequiredCapabilities(definition)) {
@@ -985,6 +991,7 @@ export abstract class AbstractMap<
 		entityKind?: "map" | "source" | "layer" | "overlay" | "control" | undefined,
 		entityId?: string | undefined
 	): void {
+		// 统一派发内部装卸错误
 		console.warn(message);
 		this.fire("error", {
 			mapId: this.id,

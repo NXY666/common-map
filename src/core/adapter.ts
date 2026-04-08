@@ -41,7 +41,7 @@ export interface AdapterHandles {
 }
 
 export abstract class AbstractMapAdapter<
-	H extends AdapterHandles = AdapterHandles,
+	THandles extends AdapterHandles = AdapterHandles,
 > extends TypedEvented<AdapterEvent> {
 	public abstract readonly engine: string;
 
@@ -58,113 +58,107 @@ export abstract class AbstractMapAdapter<
 	public async load(): Promise<void> {
 	}
 
-	// createMap() must fully initialize the native map, including:
-	// - options.initialView
-	// - initial runtime options such as style / interactive
-	// Use target.container as the only native container source of truth.
-	// options.target must not be used for native container resolution.
-	// AbstractMap.mount() will not apply an additional initial setView() call.
+	// createMap() 完成原生地图初始化，包含初始视图和运行时选项
+	// 容器仅使用 target.container
 	public abstract createMap(
 		target: MapMountTarget,
 		options: Readonly<UnifiedMapOptions>,
 		eventBridge: MapEventBridge,
-	): H["map"];
+	): THandles["map"];
 
-	public abstract destroyMap(mapHandle: H["map"]): void;
+	public abstract destroyMap(mapHandle: THandles["map"]): void;
 
-	// setView() only requests a camera change.
-	// Adapters must emit viewChanged through the bridge after the native map
-	// observes the actual camera state change.
+	// setView() 只发起视角变更；状态生效后由适配器补发 viewChanged
 	public abstract setView(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		view: CameraState,
 		transition?: CameraTransition,
 	): void;
 
-	public abstract getView(mapHandle: H["map"]): CameraState;
+	public abstract getView(mapHandle: THandles["map"]): CameraState;
 
 	public abstract updateMapOptions(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		nextOptions: Readonly<UnifiedMapRuntimeOptions>,
 		previousOptions: Readonly<UnifiedMapRuntimeOptions>,
 	): void;
 
 	public abstract project(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		lngLat: LngLatLike,
 	): ScreenPoint;
 
 	public abstract unproject(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		point: ScreenPoint,
 	): LngLatLiteral;
 
 	public abstract mountSource(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		source: AbstractSource,
-	): H["source"];
+	): THandles["source"];
 
 	public abstract updateSource(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		source: AbstractSource,
-		sourceHandle: H["source"],
+		sourceHandle: THandles["source"],
 	): void;
 
 	public abstract unmountSource(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		source: AbstractSource,
-		sourceHandle: H["source"],
+		sourceHandle: THandles["source"],
 	): void;
 
 	public abstract mountLayer(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		layer: AbstractLayer,
-	): H["layer"];
+	): THandles["layer"];
 
 	public abstract updateLayer(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		layer: AbstractLayer,
-		layerHandle: H["layer"],
+		layerHandle: THandles["layer"],
 	): void;
 
 	public abstract unmountLayer(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		layer: AbstractLayer,
-		layerHandle: H["layer"],
+		layerHandle: THandles["layer"],
 	): void;
 
 	public abstract mountOverlay(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		overlay: AdapterOverlayEntity,
-	): H["overlay"];
+	): THandles["overlay"];
 
 	public abstract updateOverlay(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		overlay: AdapterOverlayEntity,
-		overlayHandle: H["overlay"],
+		overlayHandle: THandles["overlay"],
 	): void;
 
 	public abstract unmountOverlay(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		overlay: AdapterOverlayEntity,
-		overlayHandle: H["overlay"],
+		overlayHandle: THandles["overlay"],
 	): void;
 
 	public abstract mountControl(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		control: AdapterControlEntity,
-	): H["control"];
+	): THandles["control"];
 
 	public abstract updateControl(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		control: AdapterControlEntity,
-		controlHandle: H["control"],
+		controlHandle: THandles["control"],
 	): void;
 
 	public abstract unmountControl(
-		mapHandle: H["map"],
+		mapHandle: THandles["map"],
 		control: AdapterControlEntity,
-		controlHandle: H["control"],
+		controlHandle: THandles["control"],
 	): void;
 
 	protected record(entry: string): void {

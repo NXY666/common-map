@@ -1,5 +1,5 @@
-import {MAP_CAPABILITY_KEYS} from "@/core/capability";
-import type {EmptyEventUnion} from "@/core/events";
+import {mapCapabilityKeys} from "@/core/capability";
+import type {EmptyEventMap} from "@/core/events";
 import type {Alignment} from "@/core/types";
 import {AbstractAnchoredOverlay} from "./anchored";
 import {AbstractPopupOverlay} from "./popup";
@@ -11,7 +11,7 @@ export abstract class AbstractMarkerOverlay<
 > extends AbstractAnchoredOverlay<
 	TOptions,
 	MarkerOverlayDefinition,
-	EmptyEventUnion,
+	EmptyEventMap,
 	TOverlayHandle
 > {
 	public readonly kind = "marker" as const;
@@ -40,7 +40,7 @@ export abstract class AbstractMarkerOverlay<
 
 	public setDraggable(draggable: boolean): this {
 		if (draggable) {
-			this.assertCapability(MAP_CAPABILITY_KEYS.overlay.markerDrag);
+			this.assertCapability(mapCapabilityKeys.overlay.markerDrag);
 		}
 
 		this.setOptions("draggable", draggable);
@@ -79,7 +79,8 @@ export abstract class AbstractMarkerOverlay<
 		}
 
 		if (nextPopup) {
-			this.assertCapability(MAP_CAPABILITY_KEYS.overlay.markerBindPopup);
+			// marker 与 popup 必须属于同一个 map
+			this.assertCapability(mapCapabilityKeys.overlay.markerBindPopup);
 
 			const markerMap = this.managingMap;
 			const popupMap = nextPopup.managingMap;

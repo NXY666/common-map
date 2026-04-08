@@ -44,7 +44,8 @@ export interface CapabilityDescriptor {
 	fallback?: string;
 }
 
-export const MAP_CAPABILITY_KEYS = {
+// 集中维护 capability 字面量
+export const mapCapabilityKeys = {
 	overlay: {
 		dom: "overlay.dom",
 		vector: "overlay.vector",
@@ -76,15 +77,16 @@ function readBooleanFlag(options: object, key: string): boolean {
 export function getOverlayRequiredCapabilities(
 	definition: OverlayDefinition,
 ): readonly MapCapability[] {
+	// 根据 definition 推导 overlay 所需 capability
 	switch (definition.kind) {
 		case "marker": {
 			const required: MapCapability[] = [
-				MAP_CAPABILITY_KEYS.overlay.dom,
-				MAP_CAPABILITY_KEYS.overlay.marker,
+				mapCapabilityKeys.overlay.dom,
+				mapCapabilityKeys.overlay.marker,
 			];
 
 			if (readBooleanFlag(definition.options, "draggable")) {
-				required.push(MAP_CAPABILITY_KEYS.overlay.markerDrag);
+				required.push(mapCapabilityKeys.overlay.markerDrag);
 			}
 
 			if (
@@ -92,39 +94,39 @@ export function getOverlayRequiredCapabilities(
 				typeof definition.popupId === "string" &&
 				definition.popupId.length > 0
 			) {
-				required.push(MAP_CAPABILITY_KEYS.overlay.markerBindPopup);
+				required.push(mapCapabilityKeys.overlay.markerBindPopup);
 			}
 
 			return required;
 		}
 		case "popup": {
 			const required: MapCapability[] = [
-				MAP_CAPABILITY_KEYS.overlay.dom,
-				MAP_CAPABILITY_KEYS.overlay.popup,
+				mapCapabilityKeys.overlay.dom,
+				mapCapabilityKeys.overlay.popup,
 			];
 
 			if (readBooleanFlag(definition.options, "open")) {
-				required.push(MAP_CAPABILITY_KEYS.overlay.popupOpen);
+				required.push(mapCapabilityKeys.overlay.popupOpen);
 			}
 
 			return required;
 		}
 		case "dom":
-			return [MAP_CAPABILITY_KEYS.overlay.dom];
+			return [mapCapabilityKeys.overlay.dom];
 		case "polyline":
 			return [
-				MAP_CAPABILITY_KEYS.overlay.vector,
-				MAP_CAPABILITY_KEYS.overlay.polyline,
+				mapCapabilityKeys.overlay.vector,
+				mapCapabilityKeys.overlay.polyline,
 			];
 		case "polygon":
 			return [
-				MAP_CAPABILITY_KEYS.overlay.vector,
-				MAP_CAPABILITY_KEYS.overlay.polygon,
+				mapCapabilityKeys.overlay.vector,
+				mapCapabilityKeys.overlay.polygon,
 			];
 		case "circle":
 			return [
-				MAP_CAPABILITY_KEYS.overlay.vector,
-				MAP_CAPABILITY_KEYS.overlay.circle,
+				mapCapabilityKeys.overlay.vector,
+				mapCapabilityKeys.overlay.circle,
 			];
 		default:
 			return [];
@@ -136,31 +138,31 @@ export function getControlRequiredCapabilities(
 ): readonly MapCapability[] {
 	switch (definition.kind) {
 		case "navigation":
-			return [MAP_CAPABILITY_KEYS.control.navigation];
+			return [mapCapabilityKeys.control.navigation];
 		case "scale":
-			return [MAP_CAPABILITY_KEYS.control.scale];
+			return [mapCapabilityKeys.control.scale];
 		case "fullscreen": {
-			const required: MapCapability[] = [MAP_CAPABILITY_KEYS.control.fullscreen];
+			const required: MapCapability[] = [mapCapabilityKeys.control.fullscreen];
 
 			if (readBooleanFlag(definition.options, "active")) {
-				required.push(MAP_CAPABILITY_KEYS.control.fullscreenActive);
+				required.push(mapCapabilityKeys.control.fullscreenActive);
 			}
 
 			return required;
 		}
 		case "geolocate": {
-			const required: MapCapability[] = [MAP_CAPABILITY_KEYS.control.geolocate];
+			const required: MapCapability[] = [mapCapabilityKeys.control.geolocate];
 
 			if (readBooleanFlag(definition.options, "tracking")) {
-				required.push(MAP_CAPABILITY_KEYS.control.geolocateTracking);
+				required.push(mapCapabilityKeys.control.geolocateTracking);
 			}
 
 			return required;
 		}
 		case "attribution":
-			return [MAP_CAPABILITY_KEYS.control.attribution];
+			return [mapCapabilityKeys.control.attribution];
 		case "custom":
-			return [MAP_CAPABILITY_KEYS.control.custom];
+			return [mapCapabilityKeys.control.custom];
 		default:
 			return [];
 	}
@@ -201,6 +203,7 @@ export abstract class AbstractCapabilityProfile<
 		capability: TCapability,
 		minimum: CapabilityLevel = "emulated",
 	): void {
+		// 能力不足时抛出错误
 		if (!this.supports(capability, minimum)) {
 			const descriptor = this.get(capability);
 			const fallback = descriptor.fallback

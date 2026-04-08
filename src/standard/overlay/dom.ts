@@ -1,4 +1,4 @@
-import type {EmptyEventUnion} from "@/core/events";
+import type {EmptyEventMap} from "@/core/events";
 import {AbstractAnchoredOverlay} from "./anchored";
 import type {DomContentLike, DomOverlayDefinition, DomOverlayOptions,} from "./types";
 
@@ -8,7 +8,7 @@ export abstract class AbstractDomOverlay<
 > extends AbstractAnchoredOverlay<
 	TOptions,
 	DomOverlayDefinition,
-	EmptyEventUnion,
+	EmptyEventMap,
 	TOverlayHandle
 > {
 	public readonly kind = "dom" as const;

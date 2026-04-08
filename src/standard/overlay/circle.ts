@@ -1,4 +1,4 @@
-import type {EmptyEventUnion} from "@/core/events";
+import type {EmptyEventMap} from "@/core/events";
 import {AbstractAnchoredOverlay} from "./anchored";
 import type {CircleOverlayDefinition, CircleOverlayOptions, CircleStyle,} from "./types";
 
@@ -8,7 +8,7 @@ export abstract class AbstractCircleOverlay<
 > extends AbstractAnchoredOverlay<
 	TOptions,
 	CircleOverlayDefinition,
-	EmptyEventUnion,
+	EmptyEventMap,
 	TOverlayHandle
 > {
 	public readonly kind = "circle" as const;

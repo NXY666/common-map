@@ -1,4 +1,4 @@
-import type {EmptyEventUnion} from "@/core/events";
+import type {EmptyEventMap} from "@/core/events";
 import {AbstractPathOverlay} from "./path";
 import type {PolygonOverlayDefinition, PolygonOverlayOptions, PolygonStyle,} from "./types";
 
@@ -8,7 +8,7 @@ export abstract class AbstractPolygonOverlay<
 > extends AbstractPathOverlay<
 	TOptions,
 	PolygonOverlayDefinition,
-	EmptyEventUnion,
+	EmptyEventMap,
 	TOverlayHandle
 > {
 	public readonly kind = "polygon" as const;

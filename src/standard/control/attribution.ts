@@ -1,4 +1,4 @@
-import type {EmptyEventUnion} from "@/core/events";
+import type {EmptyEventMap} from "@/core/events";
 import type {ControlSlot} from "@/core/types";
 import {AbstractStandardControl} from "./base";
 import type {AttributionControlDefinition, AttributionControlOptions,} from "./types";
@@ -9,7 +9,7 @@ export abstract class AbstractAttributionControl<
 > extends AbstractStandardControl<
 	TOptions,
 	AttributionControlDefinition,
-	EmptyEventUnion,
+	EmptyEventMap,
 	TControlHandle
 > {
 	public readonly kind = "attribution" as const;

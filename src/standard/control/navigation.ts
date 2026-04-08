@@ -1,4 +1,4 @@
-import type {EmptyEventUnion} from "@/core/events";
+import type {EmptyEventMap} from "@/core/events";
 import {AbstractStandardControl} from "./base";
 import type {NavigationControlDefinition, NavigationControlOptions,} from "./types";
 
@@ -8,7 +8,7 @@ export abstract class AbstractNavigationControl<
 > extends AbstractStandardControl<
 	TOptions,
 	NavigationControlDefinition,
-	EmptyEventUnion,
+	EmptyEventMap,
 	TControlHandle
 > {
 	public readonly kind = "navigation" as const;

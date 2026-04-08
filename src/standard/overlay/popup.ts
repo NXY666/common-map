@@ -1,5 +1,5 @@
 import {AbstractAnchoredOverlay} from "./anchored";
-import {MAP_CAPABILITY_KEYS} from "@/core/capability";
+import {mapCapabilityKeys} from "@/core/capability";
 import type {PopupContentLike, PopupOverlayDefinition, PopupOverlayEvent, PopupOverlayOptions,} from "./types";
 
 export abstract class AbstractPopupOverlay<
@@ -20,31 +20,31 @@ export abstract class AbstractPopupOverlay<
 			"一个锚定到地理坐标或 marker 的浮动信息气泡，用于展示短内容、动作入口和临时详情。",
 	} as const;
 
-	private actualOpenStateValue: boolean;
+	private actualOpenValue: boolean;
 
 	protected constructor(id: string, options: TOptions) {
 		super(id, options);
-		this.actualOpenStateValue = false;
+		this.actualOpenValue = false;
 
 		this.on("opened", () => {
-			this.actualOpenStateValue = true;
+			this.actualOpenValue = true;
 		});
 
 		this.on("closed", () => {
-			this.actualOpenStateValue = false;
+			this.actualOpenValue = false;
 		});
 
 		this.on("unmounted", () => {
-			this.actualOpenStateValue = false;
+			this.actualOpenValue = false;
 		});
 	}
 
-	public get openState(): boolean {
+	public get requestedOpen(): boolean {
 		return this.options.open ?? false;
 	}
 
-	public get actualOpenState(): boolean {
-		return this.actualOpenStateValue;
+	public get actualOpen(): boolean {
+		return this.actualOpenValue;
 	}
 
 	public setContent(content: PopupContentLike | undefined): this {
@@ -52,7 +52,7 @@ export abstract class AbstractPopupOverlay<
 		return this;
 	}
 
-	public setHTML(html: string): this {
+	public setHtml(html: string): this {
 		return this.setContent(html);
 	}
 
@@ -66,10 +66,10 @@ export abstract class AbstractPopupOverlay<
 
 	public setOpen(open: boolean): this {
 		if (open) {
-			this.assertCapability(MAP_CAPABILITY_KEYS.overlay.popupOpen);
+			this.assertCapability(mapCapabilityKeys.overlay.popupOpen);
 		}
 
-		if (open === this.openState) {
+		if (open === this.requestedOpen) {
 			return this;
 		}
 
@@ -85,11 +85,11 @@ export abstract class AbstractPopupOverlay<
 	}
 
 	public toggle(): this {
-		return this.setOpen(!this.openState);
+		return this.setOpen(!this.requestedOpen);
 	}
 
 	public isOpen(): boolean {
-		return this.actualOpenStateValue;
+		return this.actualOpenValue;
 	}
 
 	public setMaxWidth(maxWidth: string | number | undefined): this {

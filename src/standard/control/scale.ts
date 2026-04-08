@@ -1,4 +1,4 @@
-import type {EmptyEventUnion} from "@/core/events";
+import type {EmptyEventMap} from "@/core/events";
 import type {ControlSlot, LengthUnit} from "@/core/types";
 import {AbstractStandardControl} from "./base";
 import type {ScaleControlDefinition, ScaleControlOptions} from "./types";
@@ -9,7 +9,7 @@ export abstract class AbstractScaleControl<
 > extends AbstractStandardControl<
 	TOptions,
 	ScaleControlDefinition,
-	EmptyEventUnion,
+	EmptyEventMap,
 	TControlHandle
 > {
 	public readonly kind = "scale" as const;
